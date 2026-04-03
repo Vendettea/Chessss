@@ -1,0 +1,71 @@
+﻿@using MudBlazor
+@using Chessss.Models
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(Model.Id == 0 ? "Новый обучающий гайд" : "Редактирование гайда")</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField Label="Название*" @bind-Value="Model.Title" Required="true" Variant="Variant.Outlined" />
+            <MudTextField Label="Краткое описание" @bind-Value="Model.Description" Lines="2" Variant="Variant.Outlined" />
+            <MudTextField Label="Контент" @bind-Value="Model.Content" Lines="6" Variant="Variant.Outlined" />
+
+            <MudSwitch @bind-Value="_showBoard" Color="Color.Success" Label="Показывать шахматную доску" />
+
+            @if (_showBoard)
+            {
+                <MudTextField Label="FEN (Оставь пустым для старта)" @bind-Value="Model.FenPosition" Variant="Variant.Outlined" />
+            }
+
+            <MudSelect T="string" Label="Привязать теги" MultiSelection="true" @bind-SelectedValues="SelectedTagNames" Variant="Variant.Outlined">
+                @foreach (var tag in AvailableTags)
+                {
+                    <MudSelectItem T="string" Value="@tag.Name">@tag.Name</MudSelectItem>
+                }
+            </MudSelect>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Отмена</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit">Сохранить</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; }
+    [Parameter] public TrainingMaterial Model { get; set; } = new();
+    [Parameter] public List<Tag> AvailableTags { get; set; } = new();
+
+    public IEnumerable<string> SelectedTagNames { get; set; } = new HashSet<string>();
+    private bool _showBoard = true;
+
+    protected override void OnInitialized()
+    {
+        // Если мы редактируем существующий гайд, подтягиваем его теги в селект
+        if (Model.Tags != null && Model.Tags.Any())
+        {
+            SelectedTagNames = Model.Tags.Select(t => t.Name).ToHashSet();
+        }
+
+        // Если это редактирование, и FEN пустой - значит доска была отключена
+        if (Model.Id != 0 && string.IsNullOrEmpty(Model.FenPosition))
+        {
+            _showBoard = false;
+        }
+    }
+
+    private void Submit()
+    {
+        if (!_showBoard) Model.FenPosition = null;
+        MudDialog.Close(DialogResult.Ok(new DialogResultData { Material = Model, SelectedTags = SelectedTagNames }));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    public class DialogResultData
+    {
+        public TrainingMaterial Material { get; set; }
+        public IEnumerable<string> SelectedTags { get; set; }
+    }
+}

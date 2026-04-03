@@ -1,0 +1,171 @@
+﻿@page "/training"
+@rendermode InteractiveServer
+@using MudBlazor
+@using Chessss.Models
+@using Chessss.Data
+@using Chessss.Components.Admin
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext Db
+@inject IDialogService DialogService
+
+<PageTitle>UltraChess - Гайдики</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-6">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <MudText Typo="Typo.h3" Align="Align.Left">Гайды по шахматам</MudText>
+        <MudButton Variant="Variant.Filled" 
+                   Color="Color.Success" 
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="@((e) => OpenCreateDialog())">
+            Создать гайд
+        </MudButton>
+    </div>
+
+    <MudPaper Class="pa-6 mb-8" Elevation="3">
+        <MudTextField T="string"
+                      Placeholder="Поиск по названию..."
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      IconSize="Size.Medium"
+                      Class="mb-4"
+                      ValueChanged="OnSearchChanged"
+                      Immediate="true" />
+
+        @* Выбор тегов (Мульти-выбор) *@
+        <MudSelect T="string" MultiSelection="true" Label="Фильтр по тегам" SelectedValuesChanged="OnTagsSelected" Variant="Variant.Outlined">
+            @foreach (var tag in _allTagNames)
+            {
+                <MudSelectItem T="string" Value="@tag">@tag</MudSelectItem>
+            }
+        </MudSelect>
+    </MudPaper>
+
+    <div style="display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding: 8px;">
+        @foreach (var material in _filteredMaterials)
+        {
+            <MudCard Elevation="2" Class="rounded-lg training-card" Style="transition: all 0.3s ease; cursor: pointer; overflow: hidden; flex-shrink: 0;">
+                <div style="display: flex; height: 220px;">
+                    @* Левая часть - Картинка *@
+                    <div class="training-card-image" style="width: 260px; min-width: 260px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; border-radius: 8px 0 0 8px; position: relative; overflow: hidden;">
+                        @if (!string.IsNullOrEmpty(material.ImageUrl))
+                        {
+                            <img src="@material.ImageUrl" style="width: 100%; height: 100%; object-fit: cover;" alt="@material.Title" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.School" Style="font-size: 80px; color: white; opacity: 0.8;"></MudIcon>
+                        }
+                        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.1); border-radius: 8px 0 0 8px;"></div>
+                    </div>
+
+                    @* Правая часть - Контент *@
+                    <div style="flex: 1; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600;">@material.Title</MudText>
+
+                            <div class="mb-3">
+                                @foreach (var tag in material.Tags)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined" Class="mr-1 mb-1">@tag.Name</MudChip>
+                                }
+                            </div>
+
+                            <MudText Typo="Typo.body2" Class="text-truncate-3" Style="color: rgba(0,0,0,0.6);">@material.Description</MudText>
+                        </div>
+
+                        <div Class="mt-4" style="display: flex; gap: 8px;">
+                            <MudButton Variant="Variant.Filled" Color="Color.Success" Href="@($"/training/{material.Id}")" Size="Size.Small">ИЗУЧИТЬ ГАЙД</MudButton>
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                                          Title="Редактировать" 
+                                          OnClick="@((e) => OpenEditDialog(material))"
+                                          Size="Size.Small" />
+                        </div>
+                    </div>
+                </div>
+            </MudCard>
+        }
+    </div>
+
+</MudContainer>
+
+@code {
+    private string _searchString = "";
+    private IEnumerable<string> _selectedTagNames = new HashSet<string>();
+
+    private List<string> _allTagNames = new();
+    private List<TrainingMaterial> _allMaterials = new();
+    private List<TrainingMaterial> _filteredMaterials = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _allMaterials = await Db.TrainingMaterials.Include(x => x.Tags).ToListAsync();
+        _allTagNames = await Db.Tags.Select(t => t.Name).ToListAsync();
+        _filteredMaterials = _allMaterials;
+    }
+
+    private void OnSearchChanged(string text)
+    {
+        _searchString = text;
+        ApplyFilters();
+    }
+
+    private void OnTagsSelected(IEnumerable<string> selectedValues)
+    {
+        _selectedTagNames = selectedValues;
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        var query = _allMaterials.AsEnumerable();
+
+        // Фильтр по строке поиска
+        if (!string.IsNullOrWhiteSpace(_searchString))
+        {
+            query = query.Where(m => m.Title.Contains(_searchString, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // Фильтр по тегам: если выбраны теги, показываем те гайды, где есть ХОТЯ БЫ ОДИН выбранный тег
+        if (_selectedTagNames != null && _selectedTagNames.Any())
+        {
+            query = query.Where(m => m.Tags.Any(t => _selectedTagNames.Contains(t.Name)));
+        }
+
+        _filteredMaterials = query.ToList();
+    }
+
+    private async Task OpenCreateDialog()
+    {
+        var parameters = new DialogParameters<TrainingMaterialDialog>();
+        parameters.Add(x => x.Material, new TrainingMaterial());
+
+        var dialog = await DialogService.ShowAsync<TrainingMaterialDialog>("Создать новый гайд", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await RefreshMaterials();
+        }
+    }
+
+    private async Task OpenEditDialog(TrainingMaterial material)
+    {
+        var parameters = new DialogParameters<TrainingMaterialDialog>();
+        parameters.Add(x => x.Material, material);
+
+        var dialog = await DialogService.ShowAsync<TrainingMaterialDialog>("Редактировать гайд", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await RefreshMaterials();
+        }
+    }
+
+    private async Task RefreshMaterials()
+    {
+        _allMaterials = await Db.TrainingMaterials.Include(x => x.Tags).ToListAsync();
+        _filteredMaterials = _allMaterials;
+        StateHasChanged();
+    }
+}

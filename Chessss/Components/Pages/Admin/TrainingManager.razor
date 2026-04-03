@@ -1,0 +1,213 @@
+﻿@page "/admin/training"
+@rendermode InteractiveServer
+@using MudBlazor
+@using Chessss.Models
+@using Chessss.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext Db
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>UltraChess - Админка</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-6">
+        <MudText Typo="Typo.h4">Управление обучением</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => OpenDialog(null))">
+            ДОБАВИТЬ МАТЕРИАЛ
+        </MudButton>
+    </MudStack>
+
+    @* РАСШИРЕННАЯ ПАНЕЛЬ УПРАВЛЕНИЯ ТЕГАМИ *@
+    <MudPaper Class="pa-4 mb-6" Elevation="2">
+        <MudText Typo="Typo.h6" Class="mb-3">Управление тегами</MudText>
+        <MudGrid AlignItems="AlignItems.Center">
+            @* Создание нового *@
+            <MudItem xs="12" md="4">
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudTextField @bind-Value="_newTagName" Label="Новый тег" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateTag">Создать</MudButton>
+                </MudStack>
+            </MudItem>
+
+            @* Редактирование и Удаление *@
+            <MudItem xs="12" md="8">
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudSelect T="Tag" Label="Выберите тег для действия" @bind-Value="_selectedTagForAction" Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var tag in _allTags)
+                        {
+                            <MudSelectItem T="Tag" Value="@tag">@tag.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+
+                    @if (_selectedTagForAction != null)
+                    {
+                        <MudTextField @bind-Value="_selectedTagForAction.Name" Label="Новое имя" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="UpdateTag">Изменить</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="DeleteTag">Удалить</MudButton>
+                    }
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @* ТАБЛИЦА МАТЕРИАЛОВ *@
+    <MudPaper Elevation="2" Class="custom-scroll pa-2">
+        <MudTable Items="@_materials" Hover="true" FixedHeader="true" Height="65vh">
+        <HeaderContent>
+            <MudTh>Заголовок</MudTh>
+            <MudTh>Описание</MudTh>
+            <MudTh>Теги</MudTh>
+            <MudTh Style="text-align:right">Действия</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Title</MudTd>
+            <MudTd>@context.Description</MudTd>
+            <MudTd>
+                @foreach (var tag in context.Tags)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined">@tag.Name</MudChip>
+                }
+            </MudTd>
+            <MudTd Style="text-align:right">
+                @* НОВАЯ КНОПКА РЕДАКТИРОВАНИЯ *@
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="@(() => OpenDialog(context))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => OnDeleteMaterial(context))" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private List<TrainingMaterial> _materials = new();
+    private List<Tag> _allTags = new();
+    private string _newTagName = "";
+    private Tag _selectedTagForAction;
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        _materials = await Db.TrainingMaterials.Include(x => x.Tags).ToListAsync();
+        _allTags = await Db.Tags.ToListAsync();
+    }
+
+    
+
+    // 1. Создание (уже было, чуть подправил для чистоты)
+    private async Task CreateTag()
+    {
+        if (!string.IsNullOrWhiteSpace(_newTagName))
+        {
+            if (!_allTags.Any(t => t.Name.Equals(_newTagName, StringComparison.OrdinalIgnoreCase)))
+            {
+                Db.Tags.Add(new Tag { Name = _newTagName });
+                await Db.SaveChangesAsync();
+                _newTagName = "";
+                await LoadData();
+                Snackbar.Add("Тег создан", Severity.Success);
+            }
+            else Snackbar.Add(" такой тег уже есть", Severity.Warning);
+        }
+    }
+
+    // 2. Изменение тега
+    private async Task UpdateTag()
+    {
+        if (_selectedTagForAction != null && !string.IsNullOrWhiteSpace(_selectedTagForAction.Name))
+        {
+            Db.Tags.Update(_selectedTagForAction);
+            await Db.SaveChangesAsync();
+            _selectedTagForAction = null;
+            await LoadData();
+            Snackbar.Add("Тег обновлен", Severity.Info);
+        }
+    }
+
+    // 3. Удаление тега
+    private async Task DeleteTag()
+    {
+        if (_selectedTagForAction != null)
+        {
+            // Entity Framework автоматически удалит связи из таблицы-связки Many-to-Many
+            Db.Tags.Remove(_selectedTagForAction);
+            await Db.SaveChangesAsync();
+            _selectedTagForAction = null;
+            await LoadData();
+            Snackbar.Add("Тег удален из базы и всех гайдов", Severity.Error);
+        }
+    }
+
+    // Метод теперь принимает опциональный параметр. Если null - создаем. Если есть - редактируем.
+    private async Task OpenDialog(TrainingMaterial existingMaterial = null)
+    {
+        bool isEditing = existingMaterial != null;
+
+        // Делаем копию данных для окна, чтобы изменения не применились к таблице до нажатия "Сохранить"
+        var modelToEdit = isEditing
+            ? new TrainingMaterial
+            {
+                Id = existingMaterial.Id,
+                Title = existingMaterial.Title,
+                Description = existingMaterial.Description,
+                Content = existingMaterial.Content,
+                FenPosition = existingMaterial.FenPosition,
+                Tags = existingMaterial.Tags.ToList()
+            }
+            : new TrainingMaterial();
+
+        var parameters = new DialogParameters { ["AvailableTags"] = _allTags, ["Model"] = modelToEdit };
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+
+        var dialog = await DialogService.ShowAsync<AddMaterialDialog>(isEditing ? "Редактировать гайд" : "Новый гайд", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            var data = (AddMaterialDialog.DialogResultData)result.Data;
+            var savedMaterial = data.Material;
+            var selectedTags = _allTags.Where(t => data.SelectedTags.Contains(t.Name)).ToList();
+
+            if (isEditing)
+            {
+                // Ищем оригинал в БД и обновляем его поля
+                var target = await Db.TrainingMaterials.Include(m => m.Tags).FirstOrDefaultAsync(m => m.Id == savedMaterial.Id);
+                if (target != null)
+                {
+                    target.Title = savedMaterial.Title;
+                    target.Description = savedMaterial.Description;
+                    target.Content = savedMaterial.Content;
+                    target.FenPosition = savedMaterial.FenPosition;
+
+                    // Обновляем теги: очищаем старые и добавляем новые
+                    target.Tags.Clear();
+                    foreach (var tag in selectedTags) { target.Tags.Add(tag); }
+
+                    Db.TrainingMaterials.Update(target);
+                }
+            }
+            else
+            {
+                // Сохранение нового гайда
+                savedMaterial.Tags = selectedTags;
+                Db.TrainingMaterials.Add(savedMaterial);
+            }
+
+            await Db.SaveChangesAsync();
+            await LoadData();
+            Snackbar.Add(isEditing ? "Гайд успешно обновлен!" : "Гайд успешно добавлен!", Severity.Success);
+        }
+    }
+
+    private async Task OnDeleteMaterial(TrainingMaterial m)
+    {
+        Db.TrainingMaterials.Remove(m);
+        await Db.SaveChangesAsync();
+        await LoadData();
+        Snackbar.Add("Материал удален", Severity.Warning);
+    }
+}
+
+@* dotnet ef migrations add InitialCreate
+dotnet ef database update *@

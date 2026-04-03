@@ -1,0 +1,63 @@
+﻿@page "/feedback"
+@rendermode InteractiveServer
+@using Chessss.Models
+@using Chessss.Data
+@inject ApplicationDbContext Db
+@inject ISnackbar Snackbar
+
+<PageTitle>UltraChess - Обратная связь</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-10">
+    <MudPaper Class="pa-8 rounded-xl" Elevation="4">
+        <MudStack AlignItems="AlignItems.Center" Class="mb-6">
+            <MudIcon Icon="@Icons.Material.Filled.Email" Color="Color.Primary" Size="Size.Large" />
+            <MudText Typo="Typo.h4">Ваш отзыв</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Surface">Помогите нам стать лучше!</MudText>
+        </MudStack>
+
+        <EditForm Model="@_feedbackModel" OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+                
+            <MudTextField Label="Сообщение"
+                          @bind-Value="_feedbackModel.Message"
+                          For="@(() => _feedbackModel.Message)"
+                          Lines="5"
+                          Variant="Variant.Outlined"
+                          Class="mb-4" />
+
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       Size="Size.Large">
+                Отправить
+            </MudButton>
+        </EditForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    // Используем полное имя, чтобы отличить модель от страницы
+    private Chessss.Models.Feedback _feedbackModel = new Chessss.Models.Feedback();
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            _feedbackModel.SubmittedAt = DateTime.Now;
+
+            Db.Feedbacks.Add(_feedbackModel);
+            await Db.SaveChangesAsync();
+
+            Snackbar.Add("Спасибо! Ваш отзыв отправлен.", Severity.Success);
+
+            // Снова используем полное имя при очистке
+            _feedbackModel = new Chessss.Models.Feedback();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Ошибка при отправке: " + ex.Message, Severity.Error);
+        }
+    }
+
+}

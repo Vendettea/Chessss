@@ -1,0 +1,111 @@
+﻿@page "/regis"
+@using MudBlazor
+@using Chessss.Data
+@using Chessss.Models
+@using Microsoft.EntityFrameworkCore
+
+@rendermode InteractiveServer
+
+@inject ApplicationDbContext DbContext
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>UltraChess - Registration</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center" Style="height: 80vh;">
+    <MudPaper Elevation="4" Class="pa-8"
+              Style="@($"width: 100%; background-color: {(IsDarkMode ? "#1a1a1a" : "#ffffff")}; color: {(IsDarkMode ? "#ffffff" : "#212121")}; border-radius: 20px; transition: 0.3s;")">
+
+        <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-6 fw-bold">Регистрация</MudText>
+
+        <MudTextField @bind-Value="_email"
+                      T="string"
+                      Label="Email"
+                      Variant="Variant.Filled"
+                      Class="mb-4" />
+
+        @* Основной пароль *@
+        <MudTextField @bind-Value="_password"
+                      T="string"
+                      Label="Пароль"
+                      Variant="Variant.Filled"
+                      InputType="InputType.Password"
+                      Class="mb-4" />
+
+        @* Повторный ввод пароля *@
+        <MudTextField @bind-Value="_confirmPassword"
+                      T="string"
+                      Label="Повторите пароль"
+                      Variant="Variant.Filled"
+                      InputType="InputType.Password" />
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Success"
+                   FullWidth="true"
+                   Class="mt-6 py-3"
+                   OnClick="HandleRegister">
+            Зарегистрироваться
+        </MudButton>
+
+        <div class="d-flex justify-center mt-4">
+            <MudText Typo="Typo.body2" Class="mr-1" Style="@($"color: {(IsDarkMode ? "#aaa" : "#666")}")">Есть аккаунт?</MudText>
+            <MudLink Href="/auth" Underline="Underline.Hover" Color="Color.Success" Typo="Typo.body2" Class="fw-bold">Войти</MudLink>
+        </div>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [CascadingParameter] public bool IsDarkMode { get; set; }
+
+    private string _email;
+    private string _password;
+    private string _confirmPassword;
+
+    private async Task HandleRegister()
+    {
+        // 1 Проверяка на пустоту
+        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
+        {
+            Snackbar.Add("Заполните все поля!", Severity.Warning);
+            return;
+        }
+
+        // 2 Сверяем пароли
+        if (_password != _confirmPassword)
+        {
+            Snackbar.Add("Пароли не совпадают!", Severity.Error);
+            return;
+        }
+
+        try
+        {
+            // 3 Проверяем уникальность почты
+            bool userExists = await DbContext.Users.AnyAsync(u => u.Email == _email);
+            if (userExists)
+            {
+                Snackbar.Add("Пользователь с такой почтой уже существует", Severity.Error);
+                return;
+            }
+
+            // 4 Сохраняем пользователя пока без хэша(
+            var newUser = new User
+            {
+                Email = _email,
+                Username = _email,
+                PasswordHash = _password
+            };
+
+            DbContext.Users.Add(newUser);
+            await DbContext.SaveChangesAsync();
+
+            Snackbar.Add("Аккаунт создан!", Severity.Success);
+            await Task.Delay(1000);
+            Nav.NavigateTo("/auth");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Ошибка сохранения", Severity.Error);
+            Console.WriteLine(ex.Message);
+        }
+    }
+}

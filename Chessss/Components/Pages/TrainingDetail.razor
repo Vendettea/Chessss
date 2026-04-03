@@ -1,0 +1,45 @@
+﻿@page "/training/{Id:int}"
+@rendermode InteractiveServer
+@using Chessss.Models
+@using Chessss.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext Db
+@inject IJSRuntime JS
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-8">
+    <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" href="/training">Назад</MudButton>
+
+    @if (_material != null)
+    {
+        <MudPaper Class="pa-8 mt-4" Elevation="3">
+            <MudText Typo="Typo.h3">@_material.Title</MudText>
+
+            @if (!string.IsNullOrEmpty(_material.FenPosition))
+            {
+                <div class="d-flex justify-center my-6">
+                    <div id="trainingBoard" style="width: 350px;"></div>
+                </div>
+            }
+
+            <MudText Typo="Typo.body1" Style="white-space: pre-wrap;">@_material.Content</MudText>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private TrainingMaterial? _material;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _material = await Db.TrainingMaterials.Include(x => x.Tags).FirstOrDefaultAsync(x => x.Id == Id);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_material != null && !string.IsNullOrEmpty(_material.FenPosition))
+        {
+            await JS.InvokeVoidAsync("stockfishBridge.initBoardOnly", "trainingBoard", _material.FenPosition);
+        }
+    }
+}

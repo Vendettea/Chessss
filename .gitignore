@@ -1,0 +1,42 @@
+# .NET
+bin/
+obj/
+*.user
+*.tmp
+*.log
+
+# Visual Studio / VS Code
+.vs/
+.vscode/settings.json
+*.suo
+*.user
+*.aps
+*.pch
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.log
+*.svclog
+*.scc
+
+# OS
+Thumbs.db
+.DS_Store
+
+# NuGet
+packages/
+*.nupkg
+
+# Entity Framework
+*.edmx
+*.db
+
+# SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# MudBlazor / Blazor
+wwwroot/lib/
+node_modules/

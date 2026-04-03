@@ -1,0 +1,192 @@
+﻿@inherits LayoutComponentBase
+@using MudBlazor
+
+<MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="_myTheme" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudPopoverProvider />
+
+<MudLayout Style="overflow: hidden;">
+    @* БОКОВАЯ ПАНЕЛЬ *@
+    <MudDrawer Open="true" 
+               Variant="DrawerVariant.Persistent" 
+               Class="@(_isMini ? "sb-mini" : "sb-full")"
+               Style='$"background-color: {(_isDarkMode ? "#1a1a1a" : "#ffffff")}; 
+                                            border-right: 1px solid {(_isDarkMode ? "#333" : "#e0e0e0")}; 
+                                            transition: 0.3s;"'>
+        
+        <div class="d-flex flex-column h-100">
+            @* Шапка *@
+            <div class="pa-4 d-flex align-center justify-space-between" style="height: 64px;">
+                <div class="d-flex align-center" >
+                    <MudAvatar Image="images/logo.png" Size="Size.Medium" @onclick='() => Nav.NavigateTo("/")' Style="cursor:pointer;"/>
+                    @if (!_isMini) { <MudText Typo="Typo.h6" Class="ml-3 fw-bold">UltraChess</MudText> }
+                </div>
+                <MudIconButton Icon="@(_isMini ? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ChevronLeft)" 
+                               OnClick="ToggleDrawer" Size="Size.Small" />
+            </div>
+
+            @* Меню *@
+            <MudNavMenu Class="flex-grow-1 px-2">
+                <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">@(!_isMini ? "Главная" : "")</MudNavLink>
+                <MudNavLink Href="/playwithai" Icon="@Icons.Material.Filled.SmartToy">@(!_isMini ? "Играть с ИИ" : "")</MudNavLink>
+                <MudNavLink Href="/training" Icon="@Icons.Material.Filled.School">@(!_isMini ? "Обучение" : "")</MudNavLink>
+                <MudNavLink Href="/admin/training" Icon="@Icons.Material.Filled.AdminPanelSettings">Админка (Обучение)</MudNavLink>
+                <MudNavLink Href="/leaderboard" Icon="@Icons.Material.Filled.Leaderboard">@(!_isMini ? "Таблица лидеров" : "")</MudNavLink>
+            </MudNavMenu>
+
+            @* Футер *@
+            <div class="pa-2 d-flex flex-column align-center" style="border-top: 1px solid rgba(128,128,128,0.2);">
+                <MudNavLink Href="/feedback" Icon="@Icons.Material.Filled.ChatBubbleOutline" Class="w-100">@(!_isMini ? "Feedback" : "")</MudNavLink>
+
+                <div class="my-3 cursor-pointer" @onclick="ToggleTheme">
+                    <img src="@(_isDarkMode ? "images/light.png" : "images/dark.png")" style="width:30px; height:30px; " />
+                </div>
+
+                <div class="profile-card d-flex align-center pa-2 w-100" @onclick='() => Nav.NavigateTo("/auth")' style="cursor:pointer;">
+                    <MudAvatar Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small"><MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small"/></MudAvatar>
+                    @if (!_isMini) { <MudText Typo="Typo.body2" Class="ml-3">Профиль</MudText> }
+                </div>
+            </div>
+        </div>
+    </MudDrawer>
+
+    @* ОСНОВНОЙ КОНТЕНТ *@
+<MudMainContent Class="@(_isMini ? "main-mini" : "main-full")" 
+                Style="@($"background-color: {(_isDarkMode ? "#121212" : "#f5f5f5")}; min-height: 100vh; transition: 0.3s;")">
+    <div class="page-container">
+        @* Передаем значение темы всем страницам внутри *@
+        <CascadingValue Value="_isDarkMode">
+            @Body
+        </CascadingValue>
+    </div>
+</MudMainContent>
+</MudLayout>
+
+<style>
+    :root {
+        --sb-width-full: 260px;
+        --sb-width-mini: 80px;
+        --transition-speed: 0.3s;
+    }
+
+    ::deep html, ::deep body {
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+        width: 100%;
+    }
+
+    .sb-full { 
+        width: var(--sb-width-full) !important; 
+        transition: width var(--transition-speed) ease; 
+    }
+    
+    .sb-mini { 
+        width: var(--sb-width-mini) !important; 
+        transition: width var(--transition-speed) ease; 
+        overflow-x: hidden; /*Против ползунка в мини режиме*/
+    }
+
+    .sb-container {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid rgba(128, 128, 128, 0.2);
+        overflow-x: hidden;
+    }
+
+    .sb-header { 
+        height: 64px; 
+        border-bottom: 1px solid rgba(128, 128, 128, 0.1); 
+        flex-shrink: 0;
+    }
+
+    .sb-footer { 
+        border-top: 1px solid rgba(128, 128, 128, 0.1); 
+        flex-shrink: 0;
+    }
+
+    .sb-mini .mud-nav-link-text, 
+    .sb-mini .nav-text,
+    .sb-mini .mud-text { 
+        display: none !important; 
+    }
+
+    .sb-mini .mud-nav-link { 
+        justify-content: center !important; 
+        padding: 12px 0; 
+    }
+
+    .sb-mini .mud-nav-link-icon { 
+        margin-right: 0 !important; 
+    }
+
+    .sb-mini .logo-container, 
+    .sb-mini .profile-card,
+    .sb-mini .theme-btn { 
+        justify-content: center !important; 
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    .theme-btn img { 
+        width: 35px; 
+        height: 35px; 
+        cursor: pointer; 
+        transition: transform 0.2s ease; 
+    }
+
+    .theme-btn img:hover { 
+        transform: scale(1.1); 
+    }
+
+    .profile-card { 
+        background: rgba(128, 128, 128, 0.1); 
+        border-radius: 12px; 
+        cursor: pointer; 
+        transition: background 0.2s;
+    }
+
+    .profile-card:hover {
+        background: rgba(128, 128, 128, 0.2);
+    }
+
+    .no-select { 
+        user-select: none; 
+    }
+
+    .main-full { 
+        margin-left: var(--sb-width-full) !important; 
+        width: calc(100% - var(--sb-width-full)) !important;
+        transition: all var(--transition-speed) ease; 
+    }
+
+    .main-mini { 
+        margin-left: var(--sb-width-mini) !important; 
+        width: calc(100% - var(--sb-width-mini)) !important;
+        transition: all var(--transition-speed) ease; 
+    }
+</style>
+
+@code {
+    [Inject] NavigationManager Nav { get; set; }
+    bool _isMini = false;
+    bool _isDarkMode = true;
+    void ToggleDrawer() => _isMini = !_isMini;
+    void ToggleTheme() { _isDarkMode = !_isDarkMode; StateHasChanged(); }
+
+    private MudTheme _myTheme = new MudTheme()
+{
+    PaletteLight = new PaletteLight()
+    {
+        Primary = "#2E7D32",
+        Success = "#2E7D32",
+    },
+    PaletteDark = new PaletteDark()
+    {
+        Primary = "#4ADE80",
+        Success = "#4ADE80",
+    }
+};
+}

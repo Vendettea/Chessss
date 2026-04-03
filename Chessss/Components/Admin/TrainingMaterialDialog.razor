@@ -1,0 +1,136 @@
+@using Chessss.Models
+@using Chessss.Data
+@using Microsoft.EntityFrameworkCore
+@using MudBlazor
+@inject ApplicationDbContext Db
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.h5" Class="mb-6">@(Material?.Id == 0 ? "Создать новый гайд" : "Редактировать гайд")</MudText>
+
+        <MudTextField @bind-Value="Material.Title" 
+                      Label="Название" 
+                      FullWidth 
+                      Class="mb-4"
+                      Variant="Variant.Outlined" />
+
+        <MudTextField @bind-Value="Material.Description" 
+                      Label="Описание" 
+                      FullWidth 
+                      Class="mb-4"
+                      Lines="3"
+                      Variant="Variant.Outlined" />
+
+        <MudTextField @bind-Value="Material.Content" 
+                      Label="Содержание (текст урока)" 
+                      FullWidth 
+                      Class="mb-4"
+                      Lines="6"
+                      Variant="Variant.Outlined" />
+
+        <MudTextField @bind-Value="Material.FenPosition" 
+                      Label="FEN позиция (если есть)" 
+                      FullWidth 
+                      Class="mb-4"
+                      Variant="Variant.Outlined" />
+
+        <MudText Typo="Typo.subtitle2" Class="mb-2">URL Изображения</MudText>
+        <div style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 16px;">
+            <MudTextField @bind-Value="Material.ImageUrl" 
+                          Label="https://example.com/image.jpg" 
+                          FullWidth 
+                          Variant="Variant.Outlined"
+                          HelperText="Запишите ссылку на изображение" />
+            <MudButton Variant="Variant.Outlined" 
+                       Color="Color.Info"
+                       StartIcon="@Icons.Material.Filled.FileUpload">
+                Загрузить
+            </MudButton>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Material.ImageUrl))
+        {
+            <div style="border: 1px solid #e0e0e0; padding: 12px; border-radius: 4px; margin-bottom: 16px;">
+                <MudText Typo="Typo.caption" Class="mb-2">Предпросмотр:</MudText>
+                <img src="@Material.ImageUrl" style="max-width: 100%; max-height: 200px; border-radius: 4px;" alt="Превью" />
+            </div>
+        }
+
+        <MudText Typo="Typo.subtitle2" Class="mb-3">Теги</MudText>
+        <MudSelect T="string" 
+                   MultiSelection="true" 
+                   SelectedValuesChanged="OnTagsChanged"
+                   Variant="Variant.Outlined"
+                   FullWidth
+                   Placeholder="Выберите теги">
+            @foreach (var tag in _allTags)
+            {
+                <MudSelectItem T="string" Value="@tag.Name">@tag.Name</MudSelectItem>
+            }
+        </MudSelect>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel">Отмена</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save">Сохранить</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+    [Parameter] public TrainingMaterial Material { get; set; } = new();
+
+    private List<Tag> _allTags = new();
+    private HashSet<string> _selectedTags = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _allTags = await Db.Tags.ToListAsync();
+        
+        if (Material.Id != 0 && Material.Tags != null)
+        {
+            _selectedTags = new HashSet<string>(Material.Tags.Select(t => t.Name));
+        }
+    }
+
+    private void OnTagsChanged(IEnumerable<string> selectedValues)
+    {
+        _selectedTags = new HashSet<string>(selectedValues ?? new List<string>());
+        Material.Tags = _allTags.Where(t => _selectedTags.Contains(t.Name)).ToList();
+    }
+
+    private async Task Save()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(Material.Title))
+            {
+                Snackbar.Add("Название не может быть пустым", Severity.Error);
+                return;
+            }
+
+            if (Material.Id == 0)
+            {
+                Db.TrainingMaterials.Add(Material);
+            }
+            else
+            {
+                Db.TrainingMaterials.Update(Material);
+            }
+
+            await Db.SaveChangesAsync();
+            Snackbar.Add("Гайд сохранен", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(Material));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Ошибка при сохранении: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

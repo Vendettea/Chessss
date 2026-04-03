@@ -1,0 +1,112 @@
+﻿@page "/"
+@using MudBlazor
+
+<PageTitle>UltraChess</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-16 pt-10">
+    
+    @* --- HERO СЕКЦИЯ --- *@
+    <div class="hero-section text-center py-12">
+        <MudText Typo="Typo.h1" Class="@(IsDarkMode ? "text-gradient mb-4" : "text-gradient-light mb-4")">UltraChess</MudText>
+        <MudText Typo="Typo.h3" Class="mb-8 fw-bold" Style="@($"color: {(IsDarkMode ? "#b0b0b0" : "#424242")}; transition: 0.3s;")">
+            Освойте шахматы на новом уровне!
+        </MudText>
+        
+        <div class="d-flex justify-center gap-4">
+            <MudButton Variant="Variant.Outlined" 
+                       Color="Color.Warning" 
+                       Size="Size.Large" 
+                       Href="/auth"
+                       Style="border-radius: 12px; padding: 12px 24px; border-width: 2px;">
+                Войти в аккаунт
+            </MudButton>
+            
+            <MudButton Variant="Variant.Outlined" 
+                       Color="Color.Success" 
+                       Size="Size.Large"
+                       Href="/playwithai"
+                       Style="border-radius: 12px; padding: 12px 24px; border-width: 2px;">
+                Играть с Ботом
+            </MudButton>
+        </div>
+    </div>
+
+    @* --- КАРТОЧКИ ФУНКЦИЙ --- *@
+    <MudGrid Class="mt-8">
+        <MudItem xs="12" md="4">
+            <div class="feature-card-wrapper">
+                <MudPaper Elevation="2" Class="pa-6 feature-card" 
+                          Style="@($"background-color: {(IsDarkMode ? "#1e1e1e" : "#ffffff")}; border-color: {(IsDarkMode ? "#333" : "#e0e0e0")}; transition: 0.3s;")">
+                    <MudIcon Icon="@Icons.Material.Filled.AutoGraph" Color="Color.Success" Size="Size.Large" Class="mb-4"/>
+                    <MudText Typo="Typo.h6" Class="fw-bold" Style="@($"color: {(IsDarkMode ? "#fff" : "#212121")}")">Точный анализ</MudText>
+                    <MudText Typo="Typo.body2" Style="@($"color: {(IsDarkMode ? "#b0b0b0" : "#616161")}")">
+                        Движок Stockfish разберет каждую твою партию и покажет, где ты допустил ошибку.
+                    </MudText>
+                </MudPaper>
+            </div>
+        </MudItem>
+        
+        <MudItem xs="12" md="4">
+            <div class="feature-card-wrapper">
+                <MudPaper Elevation="2" Class="pa-6 feature-card"
+                          Style="@($"background-color: {(IsDarkMode ? "#1e1e1e" : "#ffffff")}; border-color: {(IsDarkMode ? "#333" : "#e0e0e0")}; transition: 0.3s;")">
+                    <MudIcon Icon="@Icons.Material.Filled.Psychology" Color="Color.Info" Size="Size.Large" Class="mb-4"/>
+                    <MudText Typo="Typo.h6" Class="fw-bold" Style="@($"color: {(IsDarkMode ? "#fff" : "#212121")}")">ИИ Турниры</MudText>
+                    <MudText Typo="Typo.body2" Style="@($"color: {(IsDarkMode ? "#b0b0b0" : "#616161")}")">
+                        Тренируйся против адаптивного интеллекта, который подстраивается под твой уровень.
+                    </MudText>
+                </MudPaper>
+            </div>
+        </MudItem>
+        
+        <MudItem xs="12" md="4">
+            <div class="feature-card-wrapper">
+                <MudPaper Elevation="2" Class="pa-6 feature-card"
+                          Style="@($"background-color: {(IsDarkMode ? "#1e1e1e" : "#ffffff")}; border-color: {(IsDarkMode ? "#333" : "#e0e0e0")}; transition: 0.3s;")">
+                    <MudIcon Icon="@Icons.Material.Filled.ModelTraining" Color="Color.Warning" Size="Size.Large" Class="mb-4"/>
+                    <MudText Typo="Typo.h6" Class="fw-bold" Style="@($"color: {(IsDarkMode ? "#fff" : "#212121")}")">Персональный план</MudText>
+                    <MudText Typo="Typo.body2" Style="@($"color: {(IsDarkMode ? "#b0b0b0" : "#616161")}")">
+                        Нейросеть составит программу обучения на основе твоих типичных ошибок.
+                    </MudText>
+                </MudPaper>
+            </div>
+        </MudItem>
+    </MudGrid>
+
+</MudContainer>
+
+@code {
+    [CascadingParameter] public bool IsDarkMode { get; set; }
+}
+
+<style>
+    .text-gradient {
+        background: linear-gradient(90deg, #FFFFFF, #4ADE80);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: clamp(3rem, 10vw, 6rem) !important;
+        font-weight: 900;
+    }
+
+    .text-gradient-light {
+        background: linear-gradient(90deg, #1A1A1A, #2E7D32);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: clamp(3rem, 10vw, 6rem) !important;
+        font-weight: 900;
+    }
+
+    .feature-card {
+        border: 1px solid;
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        cursor: default;
+        height: 100%;
+    }
+
+    .feature-card-wrapper:hover .feature-card {
+        transform: translateY(-8px);
+        border-color: #4ADE80 !important;
+        box-shadow: 0 10px 20px rgba(74, 222, 128, 0.15) !important;
+    }
+</style>

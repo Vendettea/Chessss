@@ -1,0 +1,243 @@
+﻿@page "/playwithai"
+@using ChessDotNet
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>UltraChess - Игра с ИИ</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    <MudPaper Class="pa-6" Elevation="4">
+        <MudText Typo="Typo.h4" Align="Align.Center" GutterBottom="true">Битва со Stockfish</MudText>
+
+        @* Информация об уровне сложности *@
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Text" Class="mb-4">
+            <MudText Typo="Typo.body2">
+                <strong>Уровень сложности:</strong> 
+                @GetDifficultyName(_aiDifficulty) 
+                <br/>
+                <span style="font-size: 0.85em;">Измените переменную _aiDifficulty в коде (1-20) для изменения сложности</span>
+            </MudText>
+        </MudAlert>
+
+        @* Статус игры: шах, мат или чей ход *@
+        <MudAlert Severity="Severity.Info" Variant="Variant.Filled" Class="mb-4">
+            @_gameStatus
+        </MudAlert>
+
+        @* Контейнер для доски. Chessboard.js отрисует её здесь *@
+        <div class="d-flex justify-center mb-6">
+            <div id="board" style="width: 400px; border: 2px solid #333; border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);"></div>
+        </div>
+
+        <MudStack Row="true" Justify="Justify.Center">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Refresh"
+                       OnClick="RestartGame">
+                Новая игра
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private ChessGame _game = new ChessGame();
+    private DotNetObjectReference<PlaywAI>? _objRef;
+    private string _gameStatus = "Ваш ход (Белые)";
+    
+    // Уровень сложности: 1-5 (легко), 6-15 (средне), 16-20 (сложно)
+    private int _aiDifficulty = 1; // Измените это значение для контроля сложности
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _objRef = DotNetObjectReference.Create(this);
+            await JS.InvokeAsync<object>("stockfishBridge.init", _objRef, _aiDifficulty);
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable("HandleMove")]
+    public async Task HandleMove(string from, string to)
+    {
+        Console.WriteLine($"=== HandleMove вызван: {from} -> {to} ===");
+        Console.WriteLine($"Чей ход: {_game.WhoseTurn}");
+        
+        try
+        {
+            if (_game.WhoseTurn != Player.White)
+            {
+                Console.WriteLine("Это не ход белых!");
+                return;
+            }
+
+            // Явно указываем пространство имен для Position, чтобы MudBlazor не мешал
+            var move = new Move(new ChessDotNet.Position(from), new ChessDotNet.Position(to), Player.White);
+            Console.WriteLine($"Ход создан: {move}");
+
+            bool isValid = _game.IsValidMove(move);
+            Console.WriteLine($"Ход валиден: {isValid}");
+
+            if (isValid)
+            {
+                _game.MakeMove(move, true);
+                Console.WriteLine($"Ход выполнен. FEN: {_game.GetFen()}");
+                await JS.InvokeVoidAsync("stockfishBridge.updateBoard", _game.GetFen());
+
+                _gameStatus = "ИИ думает...";
+                StateHasChanged();
+
+                await Task.Delay(500);
+                await RequestAIMove();
+            }
+            else
+            {
+                Console.WriteLine("Ход невалиден, доска не обновлена");
+                await JS.InvokeVoidAsync("stockfishBridge.updateBoard", _game.GetFen());
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка хода: {ex.Message}");
+            Console.WriteLine($"Stacktrace: {ex.StackTrace}");
+            await JS.InvokeVoidAsync("stockfishBridge.updateBoard", _game.GetFen());
+        }
+    }
+
+    // Метод для запроса хода у ИИ с учетом уровня сложности
+    private async Task RequestAIMove()
+    {
+        string fen = _game.GetFen();
+        Console.WriteLine($"=== RequestAIMove ===");
+        Console.WriteLine($"FEN: {fen}");
+        Console.WriteLine($"Сложность: {_aiDifficulty}");
+        
+        await JS.InvokeVoidAsync("stockfishBridge.sendCommand", $"position fen {fen}");
+        Console.WriteLine("Команда position отправлена");
+        
+        // Используем уровень сложности для контроля глубины анализа
+        await JS.InvokeVoidAsync("stockfishBridge.sendCommand", $"go depth {_aiDifficulty}");
+        Console.WriteLine($"Команда go depth {_aiDifficulty} отправлена");
+    }
+
+    [JSInvokable("RequestServerMove")]
+    public async Task RequestServerMove()
+    {
+        Console.WriteLine("=== RequestServerMove (простой бот) ===");
+        await Task.Delay(300 + _aiDifficulty * 50);
+        
+        try
+        {
+            // Получаем все доступные ходы
+            var allMoves = _game.Moves.Cast<Move>().ToList();
+            Console.WriteLine($"Всего ходов доступно: {allMoves.Count}");
+            
+            // Фильтруем только ходы черных
+            var blackMoves = allMoves.Where(m => m.Player == Player.Black).ToList();
+            Console.WriteLine($"Ходов для черных: {blackMoves.Count}");
+            
+            if (blackMoves.Count == 0)
+            {
+                Console.WriteLine("Нет доступных ходов для черных");
+                UpdateStatus();
+                return;
+            }
+            
+            // Выбираем ход
+            Move selectedMove = blackMoves[new Random().Next(blackMoves.Count)];
+            Console.WriteLine($"Выбран ход: {selectedMove.OriginalPosition} -> {selectedMove.NewPosition}");
+            
+            _game.MakeMove(selectedMove, true);
+            string moveText = selectedMove.OriginalPosition.ToString().ToLower() + 
+                             selectedMove.NewPosition.ToString().ToLower();
+            Console.WriteLine($"Бот сходил: {moveText}");
+            await JS.InvokeVoidAsync("stockfishBridge.updateBoard", _game.GetFen());
+            UpdateStatus();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка хода бота: {ex.Message}");
+            Console.WriteLine($"Stacktrace: {ex.StackTrace}");
+            UpdateStatus();
+        }
+    }
+
+    [JSInvokable("OnBestMoveReceived")]
+    public async Task OnBestMoveReceived(string moveText)
+    {
+        if (string.IsNullOrWhiteSpace(moveText) || moveText.Length < 4)
+        {
+            UpdateStatus();
+            return;
+        }
+
+        string from = moveText.Substring(0, 2);
+        string to = moveText.Substring(2, 2);
+        char? promotionChar = moveText.Length == 5 ? moveText[4] : null;
+
+        try
+        {
+            // Убеждаемся, что это ход черных
+            var aiMove = new Move(new ChessDotNet.Position(from), new ChessDotNet.Position(to), Player.Black, promotionChar);
+
+            if (_game.IsValidMove(aiMove))
+            {
+                _game.MakeMove(aiMove, true);
+                await JS.InvokeVoidAsync("stockfishBridge.updateBoard", _game.GetFen());
+                Console.WriteLine($"ИИ сходил: {from}{to}");
+            }
+            else
+            {
+                Console.WriteLine($"Невалидный ход ИИ: {from}{to}");
+                await JS.InvokeVoidAsync("stockfishBridge.updateBoard", _game.GetFen());
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка ИИ: {ex.Message}");
+            await JS.InvokeVoidAsync("stockfishBridge.updateBoard", _game.GetFen());
+        }
+
+        UpdateStatus();
+    }
+
+    private void UpdateStatus()
+    {
+        if (_game.IsCheckmated(Player.White))
+            _gameStatus = "Мат! ИИ победил.";
+        else if (_game.IsCheckmated(Player.Black))
+            _gameStatus = "Мат! Вы победили!";
+        else if (_game.IsStalemated(Player.White) || _game.IsStalemated(Player.Black))
+            _gameStatus = "Ничья (Пат)";
+        else if (_game.IsInCheck(Player.White))
+            _gameStatus = "Вам Шах! Ваш ход.";
+        else
+            _gameStatus = _game.WhoseTurn == Player.White ? "Ваш ход (Белые)" : "Ход ИИ (Черные)";
+
+        StateHasChanged();
+    }
+
+    private async Task RestartGame()
+    {
+        _game = new ChessGame();
+        _gameStatus = "Ваш ход (Белые)";
+        await JS.InvokeVoidAsync("stockfishBridge.resetBoard");
+        StateHasChanged();
+    }
+
+    public void Dispose() => _objRef?.Dispose();
+
+    // Вспомогательный метод для отображения уровня сложности
+    private string GetDifficultyName(int difficulty)
+    {
+        return difficulty switch
+        {
+            <= 5 => "Легко",
+            <= 10 => "Средне",
+            <= 15 => "Сложно",
+            _ => "Очень сложно"
+        };
+    }
+}
