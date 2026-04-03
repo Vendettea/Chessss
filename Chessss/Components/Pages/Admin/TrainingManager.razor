@@ -10,7 +10,7 @@
 
 <PageTitle>UltraChess - Админка</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-12">
     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-6">
         <MudText Typo="Typo.h4">Управление обучением</MudText>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => OpenDialog(null))">
@@ -153,6 +153,7 @@
                 Description = existingMaterial.Description,
                 Content = existingMaterial.Content,
                 FenPosition = existingMaterial.FenPosition,
+                ImageUrl = existingMaterial.ImageUrl,
                 Tags = existingMaterial.Tags.ToList()
             }
             : new TrainingMaterial();
@@ -179,6 +180,7 @@
                     target.Description = savedMaterial.Description;
                     target.Content = savedMaterial.Content;
                     target.FenPosition = savedMaterial.FenPosition;
+                    target.ImageUrl = savedMaterial.ImageUrl;
 
                     // Обновляем теги: очищаем старые и добавляем новые
                     target.Tags.Clear();

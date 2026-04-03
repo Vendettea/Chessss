@@ -10,7 +10,7 @@
 
 <PageTitle>UltraChess - Гайдики</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="mt-6">
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-12">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
         <MudText Typo="Typo.h3" Align="Align.Left">Гайды по шахматам</MudText>
         <MudButton Variant="Variant.Filled" 
@@ -40,30 +40,42 @@
         </MudSelect>
     </MudPaper>
 
-    <div style="display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding: 8px;">
+    <div style="display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding: 8px; height: 600px;">
         @foreach (var material in _filteredMaterials)
         {
             <MudCard Elevation="2" Class="rounded-lg training-card" Style="transition: all 0.3s ease; cursor: pointer; overflow: hidden; flex-shrink: 0;">
-                <div style="padding: 20px; display: flex; flex-direction: column; justify-content: space-between; min-height: 220px;">
-                    <div>
-                        <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600;">@material.Title</MudText>
-
-                        <div class="mb-3">
-                            @foreach (var tag in material.Tags)
-                            {
-                                <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined" Class="mr-1 mb-1">@tag.Name</MudChip>
-                            }
-                        </div>
-
-                        <MudText Typo="Typo.body2" Class="text-truncate-3" Style="color: rgba(0,0,0,0.6);">@material.Description</MudText>
+                <div style="display: flex; height: 220px;">
+                    @* Левая часть - Картинка *@
+                    <div class="training-card-image" style="width: 260px; min-width: 260px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; border-radius: 8px 0 0 8px; position: relative; overflow: hidden;">
+                        @if (!string.IsNullOrEmpty(material.ImageUrl))
+                        {
+                            <img src="@material.ImageUrl" style="width: 100%; height: 100%; object-fit: cover;" alt="@material.Title" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.School" Style="font-size: 80px; color: white; opacity: 0.8;"></MudIcon>
+                        }
+                        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.1); border-radius: 8px 0 0 8px;"></div>
                     </div>
 
-                    <div class="mt-4" style="display: flex; gap: 8px;">
-                        <MudButton Variant="Variant.Filled" Color="Color.Success" Href="@($"/training/{material.Id}")" Size="Size.Small">ИЗУЧИТЬ ГАЙД</MudButton>
-                        <MudIconButton Icon="@Icons.Material.Filled.Edit" 
-                                      Title="Редактировать" 
-                                      OnClick="@((e) => OpenEditDialog(material))"
-                                      Size="Size.Small" />
+                    @* Правая часть - Контент *@
+                    <div style="flex: 1; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600;">@material.Title</MudText>
+
+                            <div class="mb-3">
+                                @foreach (var tag in material.Tags)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined" Class="mr-1 mb-1">@tag.Name</MudChip>
+                                }
+                            </div>
+
+                            <MudText Typo="Typo.body2" Class="text-truncate-3" Style="color: rgba(0,0,0,0.6);">@material.Description</MudText>
+                        </div>
+
+                        <div Class="mt-4" style="display: flex; gap: 8px;">
+                            <MudButton Variant="Variant.Filled" Color="Color.Success" Href="@($"/training/{material.Id}")" Size="Size.Small">ИЗУЧИТЬ ГАЙД</MudButton>
+                        </div>
                     </div>
                 </div>
             </MudCard>
@@ -124,20 +136,6 @@
         parameters.Add(x => x.Material, new TrainingMaterial());
 
         var dialog = await DialogService.ShowAsync<TrainingMaterialDialog>("Создать новый гайд", parameters);
-        var result = await dialog.Result;
-
-        if (!result.Canceled)
-        {
-            await RefreshMaterials();
-        }
-    }
-
-    private async Task OpenEditDialog(TrainingMaterial material)
-    {
-        var parameters = new DialogParameters<TrainingMaterialDialog>();
-        parameters.Add(x => x.Material, material);
-
-        var dialog = await DialogService.ShowAsync<TrainingMaterialDialog>("Редактировать гайд", parameters);
         var result = await dialog.Result;
 
         if (!result.Canceled)
