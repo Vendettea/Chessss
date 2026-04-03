@@ -35,28 +35,6 @@
                       Class="mb-4"
                       Variant="Variant.Outlined" />
 
-        <MudText Typo="Typo.subtitle2" Class="mb-2">URL Изображения</MudText>
-        <div style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 16px;">
-            <MudTextField @bind-Value="Material.ImageUrl" 
-                          Label="https://example.com/image.jpg" 
-                          FullWidth 
-                          Variant="Variant.Outlined"
-                          HelperText="Запишите ссылку на изображение" />
-            <MudButton Variant="Variant.Outlined" 
-                       Color="Color.Info"
-                       StartIcon="@Icons.Material.Filled.FileUpload">
-                Загрузить
-            </MudButton>
-        </div>
-
-        @if (!string.IsNullOrEmpty(Material.ImageUrl))
-        {
-            <div style="border: 1px solid #e0e0e0; padding: 12px; border-radius: 4px; margin-bottom: 16px;">
-                <MudText Typo="Typo.caption" Class="mb-2">Предпросмотр:</MudText>
-                <img src="@Material.ImageUrl" style="max-width: 100%; max-height: 200px; border-radius: 4px;" alt="Превью" />
-            </div>
-        }
-
         <MudText Typo="Typo.subtitle2" Class="mb-3">Теги</MudText>
         <MudSelect T="string" 
                    MultiSelection="true" 
