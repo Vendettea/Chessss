@@ -3,49 +3,65 @@
 @using Chessss.Data
 @using Chessss.Models
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Identity
+@using System.ComponentModel.DataAnnotations
 
-@rendermode InteractiveServer
-
+@inject UserManager<ApplicationUser> UserManager
 @inject ApplicationDbContext DbContext
 @inject NavigationManager Nav
-@inject ISnackbar Snackbar
 
 <PageTitle>UltraChess - Registration</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center" Style="height: 80vh;">
     <MudPaper Elevation="4" Class="pa-8"
-              Style="@($"width: 100%; background-color: {(IsDarkMode ? "#1a1a1a" : "#ffffff")}; color: {(IsDarkMode ? "#ffffff" : "#212121")}; border-radius: 20px; transition: 0.3s;")">
+              Style="@($"width: 100%; background-color: {(IsDarkMode ? "#2a2a2a" : "#ffffff")}; color: {(IsDarkMode ? "#ffffff" : "#212121")}; border-radius: 20px; border: 1px solid {(IsDarkMode ? "#333" : "transparent")}; transition: 0.3s;")">
 
         <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-6 fw-bold">Регистрация</MudText>
 
-        <MudTextField @bind-Value="_email"
-                      T="string"
-                      Label="Email"
-                      Variant="Variant.Filled"
-                      Class="mb-4" />
+        <EditForm Model="RegModel" OnValidSubmit="HandleRegister" FormName="register-form">
+            <DataAnnotationsValidator />
 
-        @* Основной пароль *@
-        <MudTextField @bind-Value="_password"
-                      T="string"
-                      Label="Пароль"
-                      Variant="Variant.Filled"
-                      InputType="InputType.Password"
-                      Class="mb-4" />
+            <MudTextField @bind-Value="RegModel.Email"
+                          name="Model.Email"
+                          Label="Email"
+                          Variant="Variant.Filled"
+                          Class="mb-4"
+                          For="@(() => RegModel.Email)"
+                          Required="true"
+                          RequiredError="Введите Email" />
 
-        @* Повторный ввод пароля *@
-        <MudTextField @bind-Value="_confirmPassword"
-                      T="string"
-                      Label="Повторите пароль"
-                      Variant="Variant.Filled"
-                      InputType="InputType.Password" />
+            <MudTextField @bind-Value="RegModel.Password"
+                          name="Model.Password"
+                          Label="Пароль"
+                          Variant="Variant.Filled"
+                          InputType="InputType.Password"
+                          Class="mb-4"
+                          For="@(() => RegModel.Password)"
+                          Required="true"
+                          RequiredError="Введите пароль" />
 
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Success"
-                   FullWidth="true"
-                   Class="mt-6 py-3"
-                   OnClick="HandleRegister">
-            Зарегистрироваться
-        </MudButton>
+            <MudTextField @bind-Value="RegModel.ConfirmPassword"
+                          name="Model.ConfirmPassword"
+                          Label="Повторите пароль"
+                          Variant="Variant.Filled"
+                          InputType="InputType.Password"
+                          For="@(() => RegModel.ConfirmPassword)"
+                          Required="true"
+                          RequiredError="Повторите ввод пароля" />
+
+            @if (!string.IsNullOrEmpty(_serverError))
+            {
+                <MudText Color="Color.Error" Typo="Typo.caption" Class="d-block mb-4 mt-2" Align="Align.Center">@_serverError</MudText>
+            }
+
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Success"
+                       FullWidth="true"
+                       Class="mt-4 py-3">
+                Зарегистрироваться
+            </MudButton>
+        </EditForm>
 
         <div class="d-flex justify-center mt-4">
             <MudText Typo="Typo.body2" Class="mr-1" Style="@($"color: {(IsDarkMode ? "#aaa" : "#666")}")">Есть аккаунт?</MudText>
@@ -57,54 +73,62 @@
 @code {
     [CascadingParameter] public bool IsDarkMode { get; set; }
 
-    private string _email;
-    private string _password;
-    private string _confirmPassword;
+    [SupplyParameterFromForm]
+    public RegisterInput Model { get; set; } = new();
+
+    private RegisterInput RegModel => Model ??= new();
+    private string _serverError;
+
+    public class RegisterInput
+    {
+        [Required(ErrorMessage = "Введите Email")]
+        [RegularExpression(@"^[^@\s]+@[^@\s]+\.(com|ru|net|org|by)$", ErrorMessage = "Разрешены домены: .com, .ru, .net, .org, .by")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Введите пароль")]
+        public string Password { get; set; } = "";
+
+        [Required(ErrorMessage = "Повторите ввод пароля")]
+        [Compare(nameof(Password), ErrorMessage = "Пароли не совпадают")]
+        public string ConfirmPassword { get; set; } = "";
+    }
 
     private async Task HandleRegister()
     {
-        // 1 Проверяка на пустоту
-        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
-        {
-            Snackbar.Add("Заполните все поля!", Severity.Warning);
-            return;
-        }
-
-        // 2 Сверяем пароли
-        if (_password != _confirmPassword)
-        {
-            Snackbar.Add("Пароли не совпадают!", Severity.Error);
-            return;
-        }
+        _serverError = null;
 
         try
         {
-            // 3 Проверяем уникальность почты
-            bool userExists = await DbContext.Users.AnyAsync(u => u.Email == _email);
-            if (userExists)
+            ApplicationUser newUser = new ApplicationUser
             {
-                Snackbar.Add("Пользователь с такой почтой уже существует", Severity.Error);
-                return;
-            }
-
-            // 4 Сохраняем пользователя пока без хэша(
-            var newUser = new User
-            {
-                Email = _email,
-                Username = _email,
-                PasswordHash = _password
+                UserName = RegModel.Email,
+                Email = RegModel.Email,
+                Nickname = RegModel.Email.Split('@')[0],
+                EloRating = 1200,
+                RegisteredAt = DateTime.UtcNow
             };
 
-            DbContext.Users.Add(newUser);
-            await DbContext.SaveChangesAsync();
+            var result = await UserManager.CreateAsync(newUser, RegModel.Password);
 
-            Snackbar.Add("Аккаунт создан!", Severity.Success);
-            await Task.Delay(1000);
-            Nav.NavigateTo("/auth");
+            if (result.Succeeded)
+            {
+                // В SSR перенаправление происходит мгновенно
+                Nav.NavigateTo("/auth");
+            }
+            else
+            {
+                foreach (var error in result.Errors)
+                {
+                    if (error.Code == "DuplicateUserName" || error.Code == "DuplicateEmail")
+                        _serverError = "Пользователь с такой почтой уже есть!";
+                    else
+                        _serverError = "Ошибка регистрации: проверьте данные";
+                }
+            }
         }
         catch (Exception ex)
         {
-            Snackbar.Add("Ошибка сохранения", Severity.Error);
+            _serverError = "Ошибка сервера";
             Console.WriteLine(ex.Message);
         }
     }

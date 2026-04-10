@@ -15,7 +15,7 @@ window.stockfishBridge = {
         // Пытаемся загрузить Stockfish из CDN
         try {
             if (typeof Stockfish !== 'undefined') {
-                this.stockfish = await Stockfish();
+                this.stockfish = Stockfish();
                 this.useStockfish = true;
                 console.log("✓ Stockfish загружен с CDN");
             } else {
@@ -32,6 +32,13 @@ window.stockfishBridge = {
         var config = {
             draggable: true,
             position: 'start',
+            onDragStart: function(source, piece, position, orientation) {
+                // Разрешить двигать только белые фигуры и только когда это ход белых
+                if (piece.search(/^b/) !== -1) {
+                    return false;
+                }
+                return true;
+            },
             onDrop: function(source, target) {
                 console.log("Ход: " + source + " -> " + target);
                 self.dotNetRef.invokeMethodAsync('HandleMove', source, target);
@@ -82,8 +89,11 @@ window.stockfishBridge = {
                 this.requestServerMove();
             }
         } else {
-            console.log("Запрос хода у сервера (простой бот)");
-            this.requestServerMove();
+            // Только для команды "go" запрашиваем ход у сервера
+            if (command.startsWith("go")) {
+                console.log("Запрос хода у сервера (простой бот)");
+                this.requestServerMove();
+            }
         }
     },
 

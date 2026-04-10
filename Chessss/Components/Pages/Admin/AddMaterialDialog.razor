@@ -1,7 +1,9 @@
 ﻿@using MudBlazor
 @using Chessss.Models
 @using System.IO
+@using System.Security.Cryptography
 @inject ISnackbar Snackbar
+@inject IWebHostEnvironment Env
 
 <MudDialog>
     <TitleContent>
@@ -23,8 +25,13 @@
             </div>
             @if (!string.IsNullOrEmpty(Model.ImageUrl))
             {
-                <div style="margin-bottom: 8px; max-width: 100%;">
-                    <img src="@Model.ImageUrl" style="max-width: 240px; max-height: 180px; object-fit: cover; border: 1px solid #ccc; border-radius: 8px;" />
+                <div style="margin-bottom: 8px; max-width: 100%; width: 240px; height: 180px; position: relative; border-radius: 8px; overflow: hidden; background: #f6f6f6; display: flex; align-items: center; justify-content: center;">
+                    <img src="@Model.ImageUrl" 
+                         style="max-width: 240px; max-height: 180px; width: 100%; height: 100%; object-fit: cover;" 
+                         onload="this.style.display='block'; this.parentElement.querySelector('.fallback-preview').style.display='none';"
+                         onerror="this.style.display='none'; this.parentElement.querySelector('.fallback-preview').style.display='flex';" 
+                         alt="Превью" />
+                    <MudIcon Icon="@Icons.Material.Filled.BrokenImage" Class="fallback-preview" Style="position: absolute; font-size: 30px; color: #999; display: none;" />
                 </div>
             }
 
@@ -57,20 +64,19 @@
     public IEnumerable<string> SelectedTagNames { get; set; } = new HashSet<string>();
     private bool _showBoard = true;
 
-    private string _originalImageUrl;
-    private string _temporaryImageUrl;
+    private string? _originalImageUrl;
+    private string? _temporaryImageUrl;
+    private bool _imageChanged = false;
 
     protected override void OnInitialized()
     {
         _originalImageUrl = Model.ImageUrl;
 
-        // Если мы редактируем существующий гайд, подтягиваем его теги в селект
         if (Model.Tags != null && Model.Tags.Any())
         {
             SelectedTagNames = Model.Tags.Select(t => t.Name).ToHashSet();
         }
 
-        // Если это редактирование, и FEN пустой - значит доска была отключена
         if (Model.Id != 0 && string.IsNullOrEmpty(Model.FenPosition))
         {
             _showBoard = false;
@@ -95,6 +101,18 @@
             return;
         }
 
+        // Удаляем предыдущую загруженную временную картинку (если была в этом сеансе диалога)
+        if (!string.IsNullOrEmpty(_temporaryImageUrl) && _temporaryImageUrl.StartsWith("/uploads/"))
+        {
+            var tempPath = Path.Combine("wwwroot", _temporaryImageUrl.TrimStart('/'));
+            if (System.IO.File.Exists(tempPath))
+            {
+                try { System.IO.File.Delete(tempPath); }
+                catch { /* ignore */ }
+            }
+        }
+
+        // Загружаем новый файл
         var extension = Path.GetExtension(file.Name);
         var fileName = $"{Guid.NewGuid()}{extension}";
         var path = Path.Combine("wwwroot", "uploads", fileName);
@@ -103,19 +121,13 @@
         await using var fileStream = new FileStream(path, FileMode.Create);
         await stream.CopyToAsync(fileStream);
 
-        // Если ранее была временная загруженная картинка (до сохранения), удаляем её
-        if (!string.IsNullOrEmpty(_temporaryImageUrl) && _temporaryImageUrl != Model.ImageUrl && _temporaryImageUrl.StartsWith("/uploads/"))
-        {
-            var tempPath = Path.Combine("wwwroot", _temporaryImageUrl.TrimStart('/'));
-            if (System.IO.File.Exists(tempPath))
-                System.IO.File.Delete(tempPath);
-        }
-
-        // Новый выбранный файл сохраняем
+        // Сохраняем новый URL в Model и в временное хранилище
         var newImageUrl = $"/uploads/{fileName}";
         Model.ImageUrl = newImageUrl;
         _temporaryImageUrl = newImageUrl;
-
+        _imageChanged = true;
+        
+        Snackbar.Add("Изображение загружено", Severity.Success);
         StateHasChanged();
     }
 
@@ -130,6 +142,7 @@
 
         Model.ImageUrl = null;
         _temporaryImageUrl = null;
+        _imageChanged = true;
     }
 
     private void CleanupTempImageOnCancel()
@@ -147,14 +160,18 @@
     {
         if (!_showBoard) Model.FenPosition = null;
 
-        // Если сохранено новое изображение (временное), то старое оригинальное можно удалить
+        // Удаляем только ТЕ старые файлы, которые больше не используются
+        // Если изменили картинку (выбрали новую), удаляем старую оригинальную
         if (!string.IsNullOrEmpty(_originalImageUrl)
             && _originalImageUrl != Model.ImageUrl
             && _originalImageUrl.StartsWith("/uploads/"))
         {
             var oldPath = Path.Combine("wwwroot", _originalImageUrl.TrimStart('/'));
             if (System.IO.File.Exists(oldPath))
-                System.IO.File.Delete(oldPath);
+            {
+                try { System.IO.File.Delete(oldPath); }
+                catch { /* файл может быть использован другим гайдом */ }
+            }
         }
 
         _temporaryImageUrl = null;

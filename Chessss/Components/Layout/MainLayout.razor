@@ -8,21 +8,24 @@
 
 <MudLayout Style="overflow: hidden;">
     @* БОКОВАЯ ПАНЕЛЬ *@
-    <MudDrawer Open="true" 
-               Variant="DrawerVariant.Persistent" 
+    <MudDrawer Open="true"
+               Variant="DrawerVariant.Persistent"
                Class="@(_isMini ? "sb-mini" : "sb-full")"
-               Style='$"background-color: {(_isDarkMode ? "#1a1a1a" : "#ffffff")}; 
-                                            border-right: 1px solid {(_isDarkMode ? "#333" : "#e0e0e0")}; 
+               Style='$"background-color: {(_isDarkMode ? "#1a1a1a" : "#ffffff")};
+                                            border-right: 1px solid {(_isDarkMode ? "#333" : "#e0e0e0")};
                                             transition: 0.3s;"'>
-        
+
         <div class="d-flex flex-column h-100">
             @* Шапка *@
             <div class="pa-4 d-flex align-center justify-space-between" style="height: 64px;">
-                <div class="d-flex align-center" >
-                    <MudAvatar Image="images/logo.png" Size="Size.Medium" @onclick='() => Nav.NavigateTo("/")' Style="cursor:pointer;"/>
-                    @if (!_isMini) { <MudText Typo="Typo.h6" Class="ml-3 fw-bold">UltraChess</MudText> }
+                <div class="d-flex align-center">
+                    <MudAvatar Image="images/logo.png" Size="Size.Medium" @onclick='() => Nav.NavigateTo("/")' Style="cursor:pointer;" />
+                    @if (!_isMini)
+                    {
+                        <MudText Typo="Typo.h6" Class="ml-3 fw-bold">UltraChess</MudText>
+                    }
                 </div>
-                <MudIconButton Icon="@(_isMini ? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ChevronLeft)" 
+                <MudIconButton Icon="@(_isMini? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ChevronLeft)"
                                OnClick="ToggleDrawer" Size="Size.Small" />
             </div>
 
@@ -44,23 +47,26 @@
                 </div>
 
                 <div class="profile-card d-flex align-center pa-2 w-100" @onclick='() => Nav.NavigateTo("/auth")' style="cursor:pointer;">
-                    <MudAvatar Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small"><MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small"/></MudAvatar>
-                    @if (!_isMini) { <MudText Typo="Typo.body2" Class="ml-3">Профиль</MudText> }
+                    <MudAvatar Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small"><MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" /></MudAvatar>
+                    @if (!_isMini)
+                    {
+                        <MudText Typo="Typo.body2" Class="ml-3">Профиль</MudText>
+                    }
                 </div>
             </div>
         </div>
     </MudDrawer>
 
     @* ОСНОВНОЙ КОНТЕНТ *@
-<MudMainContent Class="@(_isMini ? "main-mini" : "main-full")" 
-                Style="@($"background-color: {(_isDarkMode ? "#121212" : "#f5f5f5")}; min-height: 100vh; transition: 0.3s;")">
-    <div class="page-container">
-        @* Передаем значение темы всем страницам внутри *@
-        <CascadingValue Value="_isDarkMode">
-            @Body
-        </CascadingValue>
-    </div>
-</MudMainContent>
+    <MudMainContent Class="@(_isMini ? "main-mini" : "main-full")"
+                    Style="@($"background-color: {(_isDarkMode ? "#121212" : "#f5f5f5")}; min-height: 100vh; transition: 0.3s;")">
+        <div class="page-container">
+            @* Передаем значение темы всем страницам внутри *@
+            <CascadingValue Value="_isDarkMode">
+                @Body
+            </CascadingValue>
+        </div>
+    </MudMainContent>
 </MudLayout>
 
 <style>
@@ -77,15 +83,15 @@
         width: 100%;
     }
 
-    .sb-full { 
-        width: var(--sb-width-full) !important; 
-        transition: width var(--transition-speed) ease; 
+    .sb-full {
+        width: var(--sb-width-full) !important;
+        transition: width var(--transition-speed) ease;
     }
-    
-    .sb-mini { 
-        width: var(--sb-width-mini) !important; 
-        transition: width var(--transition-speed) ease; 
-        overflow-x: hidden; /*Против ползунка в мини режиме*/
+
+    .sb-mini {
+        width: var(--sb-width-mini) !important;
+        transition: width var(--transition-speed) ease;
+        overflow-x: hidden;
     }
 
     .sb-container {
@@ -96,76 +102,76 @@
         overflow-x: hidden;
     }
 
-    .sb-header { 
-        height: 64px; 
-        border-bottom: 1px solid rgba(128, 128, 128, 0.1); 
+    .sb-header {
+        height: 64px;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.1);
         flex-shrink: 0;
     }
 
-    .sb-footer { 
-        border-top: 1px solid rgba(128, 128, 128, 0.1); 
+    .sb-footer {
+        border-top: 1px solid rgba(128, 128, 128, 0.1);
         flex-shrink: 0;
     }
 
-    .sb-mini .mud-nav-link-text, 
+    .sb-mini .mud-nav-link-text,
     .sb-mini .nav-text,
-    .sb-mini .mud-text { 
-        display: none !important; 
+    .sb-mini .mud-text {
+        display: none !important;
     }
 
-    .sb-mini .mud-nav-link { 
-        justify-content: center !important; 
-        padding: 12px 0; 
+    .sb-mini .mud-nav-link {
+        justify-content: center !important;
+        padding: 12px 0;
     }
 
-    .sb-mini .mud-nav-link-icon { 
-        margin-right: 0 !important; 
+    .sb-mini .mud-nav-link-icon {
+        margin-right: 0 !important;
     }
 
-    .sb-mini .logo-container, 
+    .sb-mini .logo-container,
     .sb-mini .profile-card,
-    .sb-mini .theme-btn { 
-        justify-content: center !important; 
+    .sb-mini .theme-btn {
+        justify-content: center !important;
         padding-left: 0 !important;
         padding-right: 0 !important;
     }
 
-    .theme-btn img { 
-        width: 35px; 
-        height: 35px; 
-        cursor: pointer; 
-        transition: transform 0.2s ease; 
+    .theme-btn img {
+        width: 35px;
+        height: 35px;
+        cursor: pointer;
+        transition: transform 0.2s ease;
     }
 
-    .theme-btn img:hover { 
-        transform: scale(1.1); 
-    }
+        .theme-btn img:hover {
+            transform: scale(1.1);
+        }
 
-    .profile-card { 
-        background: rgba(128, 128, 128, 0.1); 
-        border-radius: 12px; 
-        cursor: pointer; 
+    .profile-card {
+        background: rgba(128, 128, 128, 0.1);
+        border-radius: 12px;
+        cursor: pointer;
         transition: background 0.2s;
     }
 
-    .profile-card:hover {
-        background: rgba(128, 128, 128, 0.2);
+        .profile-card:hover {
+            background: rgba(128, 128, 128, 0.2);
+        }
+
+    .no-select {
+        user-select: none;
     }
 
-    .no-select { 
-        user-select: none; 
-    }
-
-    .main-full { 
-        margin-left: var(--sb-width-full) !important; 
+    .main-full {
+        margin-left: var(--sb-width-full) !important;
         width: calc(100% - var(--sb-width-full)) !important;
-        transition: all var(--transition-speed) ease; 
+        transition: all var(--transition-speed) ease;
     }
 
-    .main-mini { 
-        margin-left: var(--sb-width-mini) !important; 
+    .main-mini {
+        margin-left: var(--sb-width-mini) !important;
         width: calc(100% - var(--sb-width-mini)) !important;
-        transition: all var(--transition-speed) ease; 
+        transition: all var(--transition-speed) ease;
     }
 </style>
 
@@ -177,16 +183,16 @@
     void ToggleTheme() { _isDarkMode = !_isDarkMode; StateHasChanged(); }
 
     private MudTheme _myTheme = new MudTheme()
-{
-    PaletteLight = new PaletteLight()
     {
-        Primary = "#2E7D32",
-        Success = "#2E7D32",
-    },
-    PaletteDark = new PaletteDark()
-    {
-        Primary = "#4ADE80",
-        Success = "#4ADE80",
-    }
-};
+        PaletteLight = new PaletteLight()
+        {
+            Primary = "#2E7D32",
+            Success = "#2E7D32",
+        },
+        PaletteDark = new PaletteDark()
+        {
+            Primary = "#4ADE80",
+            Success = "#4ADE80",
+        }
+    };
 }

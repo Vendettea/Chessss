@@ -1,74 +1,68 @@
 ﻿@page "/auth"
-@using MudBlazor
-@using Chessss.Data
+@using Microsoft.AspNetCore.Identity
 @using Chessss.Models
-@using Microsoft.EntityFrameworkCore
-
-@rendermode InteractiveServer
-
-@inject ApplicationDbContext DbContext
+@using System.ComponentModel.DataAnnotations
+@inject SignInManager<ApplicationUser> SignInManager
 @inject NavigationManager Nav
-@inject ISnackbar Snackbar
 
-<PageTitle>UltraChess - Authorization</PageTitle>
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+    <MudPaper Elevation="4" Class="pa-8" Style="border-radius: 20px;">
+        <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-6">Вход</MudText>
 
-<MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center" Style="height: 80vh;">
-    <MudPaper Elevation="4" Class="pa-8" 
-              Style="@($"width: 100%; background-color: {(IsDarkMode ? "#1a1a1a" : "#ffffff")}; color: {(IsDarkMode ? "#ffffff" : "#212121")}; border-radius: 20px; transition: 0.3s;")">
-        
-        <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-6 fw-bold">Вход</MudText>
-        
-        <MudTextField @bind-Value="_email" T="string" Label="Email" Variant="Variant.Filled" Class="mb-4" />
-        <MudTextField @bind-Value="_password" T="string" Label="Пароль" Variant="Variant.Filled" InputType="InputType.Password" />
-        
-        <MudButton Variant="Variant.Filled" Color="Color.Success" FullWidth="true" Class="mt-6 py-3" OnClick="HandleLogin">
-            Войти
-        </MudButton>
-        
-        <div class="d-flex justify-center mt-4">
-            <MudText Typo="Typo.body2" Class="mr-1" Style="@($"color: {(IsDarkMode ? "#aaa" : "#666")}")">Нет аккаунта?</MudText>
-            <MudLink Href="/regis" Underline="Underline.Hover" Color="Color.Success" Typo="Typo.body2" Class="fw-bold">Зарегистрироваться</MudLink>
-        </div>
+        @* Важно: указываем FormName, чтобы Blazor понял, какую форму обрабатывать *@
+        <EditForm Model="LoginModel" OnValidSubmit="HandleLogin" FormName="LoginForm" method="post">
+            <DataAnnotationsValidator />
+
+            <MudTextField @bind-Value="LoginModel.Email"
+                          Label="Email"
+                          name="LoginModel.Email"
+                          Variant="Variant.Filled"
+                          Class="mb-4" />
+
+            <MudTextField @bind-Value="LoginModel.Password"
+                          Label="Пароль"
+                          name="LoginModel.Password"
+                          Variant="Variant.Filled"
+                          InputType="InputType.Password"
+                          Class="mb-4" />
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <MudText Color="Color.Error" Class="mb-4">@_error</MudText>
+            }
+
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Success" FullWidth="true">
+                Войти
+            </MudButton>
+        </EditForm>
     </MudPaper>
 </MudContainer>
 
 @code {
-    [CascadingParameter] public bool IsDarkMode { get; set; }
-    
-    private string _email;
-    private string _password;
+    [SupplyParameterFromForm]
+    public LoginInput LoginModel { get; set; } = new();
+
+    private string? _error;
+
+    public class LoginInput
+    {
+        [Required] public string Email { get; set; } = "";
+        [Required] public string Password { get; set; } = "";
+    }
 
     private async Task HandleLogin()
     {
-        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
-        {
-            Snackbar.Add("Введите email и пароль", Severity.Warning);
-            return;
-        }
+        // Теперь это работает как в твоем проекте с доставкой
+        var result = await SignInManager.PasswordSignInAsync(LoginModel.Email, LoginModel.Password, isPersistent: true, lockoutOnFailure: false);
 
-        try 
+        if (result.Succeeded)
         {
-            // Ищем пользователя с таким Email и Паролем
-            var user = await DbContext.Users
-                .FirstOrDefaultAsync(u => u.Email == _email && u.PasswordHash == _password);
-
-            if (user != null)
-            {
-                Snackbar.Add($"Добро пожаловать, {user.Email}!", Severity.Success);
-                
-                // Имитация задержки перед переходом
-                await Task.Delay(1000);
-                Nav.NavigateTo("/"); 
-            }
-            else
-            {
-                Snackbar.Add("Неверная почта или пароль", Severity.Error);
-            }
+            // forceLoad: true ОБЯЗАТЕЛЕН, чтобы браузер «проснулся» с новой кукой
+            Nav.NavigateTo("/", forceLoad: true);
         }
-        catch (Exception ex)
+        else
         {
-            Snackbar.Add("Ошибка при входе", Severity.Error);
-            Console.WriteLine(ex.Message);
+            _error = "Ошибка входа. Проверьте данные.";
         }
     }
 }
