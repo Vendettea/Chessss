@@ -5,40 +5,62 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject NavigationManager Nav
 
-<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
-    <MudPaper Elevation="4" Class="pa-8" Style="border-radius: 20px;">
-        <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-6">Вход</MudText>
+<div Class="d-flex align-center justify-center" style="min-height: 80vh;">
+    <MudContainer MaxWidth="MaxWidth.Small">
+        <MudPaper Elevation="4"
+                  Class="pa-8"
+                  Style="@($"border-radius: 20px; background-color: {(IsDarkMode ? "#1e1e1e" : "#ffffff")};")">
 
-        @* Важно: указываем FormName, чтобы Blazor понял, какую форму обрабатывать *@
-        <EditForm Model="LoginModel" OnValidSubmit="HandleLogin" FormName="LoginForm" method="post">
-            <DataAnnotationsValidator />
+            <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-6 fw-bold" Style="color: white !important;">Вход</MudText>
 
-            <MudTextField @bind-Value="LoginModel.Email"
-                          Label="Email"
-                          name="LoginModel.Email"
-                          Variant="Variant.Filled"
-                          Class="mb-4" />
+            <EditForm Model="LoginModel" OnValidSubmit="HandleLogin" FormName="LoginForm" method="post">
+                <DataAnnotationsValidator />
 
-            <MudTextField @bind-Value="LoginModel.Password"
-                          Label="Пароль"
-                          name="LoginModel.Password"
-                          Variant="Variant.Filled"
-                          InputType="InputType.Password"
-                          Class="mb-4" />
+                <MudTextField @bind-Value="LoginModel.Email"
+                              Label="Email"
+                              name="LoginModel.Email"
+                              Variant="Variant.Filled"
+                              Class="mb-4" />
 
-            @if (!string.IsNullOrEmpty(_error))
-            {
-                <MudText Color="Color.Error" Class="mb-4">@_error</MudText>
-            }
+                <MudTextField @bind-Value="LoginModel.Password"
+                              Label="Пароль"
+                              name="LoginModel.Password"
+                              Variant="Variant.Filled"
+                              InputType="InputType.Password"
+                              Class="mb-4" />
 
-            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Success" FullWidth="true">
-                Войти
-            </MudButton>
-        </EditForm>
-    </MudPaper>
-</MudContainer>
+                <MudButton ButtonType="ButtonType.Submit"
+                           Variant="Variant.Filled"
+                           Color="Color.Success"
+                           FullWidth="true"
+                           Style="height: 50px; border-radius: 10px;"
+                           Class="mt-4">
+                    Войти
+                </MudButton>
+
+                <div class="d-flex justify-center mt-4">
+                    <MudText Typo="Typo.body2"
+                             Class="mr-1"
+                             Style="@($"color: {(IsDarkMode ? "#aaa" : "#666")}")">
+                        Нет аккаунта?
+                    </MudText>
+                    <MudLink Href="/regis"
+                             Underline="Underline.Hover"
+                             Color="Color.Success"
+                             Typo="Typo.body2"
+                             Class="fw-bold">
+                        Зарегистрироваться
+                    </MudLink>
+                </div>
+            </EditForm>
+        </MudPaper>
+    </MudContainer>
+</div>
 
 @code {
+    [CascadingParameter]
+    public bool IsDarkMode { get; set; }
+
     [SupplyParameterFromForm]
     public LoginInput LoginModel { get; set; } = new();
 
@@ -46,23 +68,26 @@
 
     public class LoginInput
     {
-        [Required] public string Email { get; set; } = "";
-        [Required] public string Password { get; set; } = "";
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = "";
+
+        [Required]
+        public string Password { get; set; } = "";
     }
 
     private async Task HandleLogin()
     {
-        // Теперь это работает как в твоем проекте с доставкой
-        var result = await SignInManager.PasswordSignInAsync(LoginModel.Email, LoginModel.Password, isPersistent: true, lockoutOnFailure: false);
+        _error = null;
+        var result = await SignInManager.PasswordSignInAsync(LoginModel.Email, LoginModel.Password, true, false);
 
         if (result.Succeeded)
         {
-            // forceLoad: true ОБЯЗАТЕЛЕН, чтобы браузер «проснулся» с новой кукой
             Nav.NavigateTo("/", forceLoad: true);
         }
         else
         {
-            _error = "Ошибка входа. Проверьте данные.";
+            _error = "Неверный логин или пароль.";
         }
     }
 }
