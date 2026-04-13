@@ -1,81 +1,430 @@
-﻿@page "/playwithai"
+@page "/playwithai"
 @rendermode InteractiveServer
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
 @inject IJSRuntime JS
-@implements IDisposable
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject Chessss.Services.UserDifficultyService UserDifficultyService
+@implements IAsyncDisposable
 
 <PageTitle>UltraChess - Игра с ИИ</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
-    <MudGrid>
-        @* Левая колонка: Шахматная доска *@
-        <MudItem xs="12" md="7" lg="6">
-            <MudPaper Elevation="4" Class="pa-2" Style="background-color: #2b2b2b;">
-                <div id="chessBoard" style="width: 100%"></div>
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 play-ai-page">
+    <MudGrid Spacing="3">
+        <MudItem xs="12" lg="7">
+            <MudPaper Elevation="4" Class="play-ai-board-shell pa-4">
+                <MudStack Spacing="3">
+                    <div>
+                        <MudText Typo="Typo.h4">Игра с ИИ</MudText>
+                        <MudText Typo="Typo.body2" Class="play-ai-subtitle">
+                            Вы играете белыми. Сначала выберите сложность, затем начните партию.
+                        </MudText>
+                    </div>
+
+                    <div class="play-ai-board-frame">
+                        <div id="chessBoard" class="play-ai-board"></div>
+                    </div>
+                </MudStack>
             </MudPaper>
         </MudItem>
 
-        @* Правая колонка: Статус и управление *@
-        <MudItem xs="12" md="5" lg="4">
-            <MudStack Spacing="4">
-                <MudCard Elevation="4">
+        <MudItem xs="12" lg="5">
+            <MudStack Spacing="3">
+                <MudCard Elevation="4" Class="play-ai-panel">
                     <MudCardHeader>
                         <CardHeaderContent>
-                            <MudText Typo="Typo.h5">Противник: Stockfish</MudText>
+                            <MudText Typo="Typo.h5">Панель партии</MudText>
+                            <MudText Typo="Typo.body2">Противник: ИИ за чёрных</MudText>
                         </CardHeaderContent>
                     </MudCardHeader>
+
                     <MudCardContent>
-                        <MudText Typo="Typo.body1">Статус партии:</MudText>
-                        <MudAlert Severity="Severity.Normal" Variant="Variant.Filled" Class="mt-2" NoIcon="true">
-                            <code style="color: white; font-size: 0.75rem;">@_currentFen</code>
-                        </MudAlert>
+                        <MudStack Spacing="3">
+                            <MudSelect T="int"
+                                       Label="Уровень сложности"
+                                       Variant="Variant.Outlined"
+                                       Dense="true"
+                                       @bind-Value="_selectedDifficulty">
+                                @foreach (var level in DifficultyLevels)
+                                {
+                                    <MudSelectItem T="int" Value="@level">Уровень @level</MudSelectItem>
+                                }
+                            </MudSelect>
+
+                            <MudPaper Class="play-ai-difficulty px-3 py-2" Outlined="true">
+                                <MudText Typo="Typo.subtitle2">@GetDifficultyLabel(_selectedDifficulty)</MudText>
+                                <MudText Typo="Typo.body2">@GetDifficultyDescription(_selectedDifficulty)</MudText>
+                                @if (_gameStarted && _selectedDifficulty != _activeDifficulty)
+                                {
+                                    <MudText Typo="Typo.caption" Class="d-block mt-1">
+                                        Новый уровень применится после кнопки "Заново".
+                                    </MudText>
+                                }
+                            </MudPaper>
+
+                            <MudAlert Severity="@_statusSeverity" Variant="Variant.Filled" NoIcon="true">
+                                @_statusText
+                            </MudAlert>
+
+                            <MudPaper Class="px-3 py-2" Outlined="true">
+                                <MudText Typo="Typo.caption" Class="d-block">Текущая сложность партии</MudText>
+                                <MudText Typo="Typo.body1">Уровень @_activeDifficulty</MudText>
+                                <MudText Typo="Typo.caption" Class="d-block mt-1">FEN: @_currentFen</MudText>
+                            </MudPaper>
+                        </MudStack>
                     </MudCardContent>
+
                     <MudCardActions>
                         <MudButton Variant="Variant.Filled"
-                                   Color="Color.Error"
+                                   Color="Color.Success"
                                    FullWidth="true"
-                                   OnClick="RestartGame">
-                            Начать заново
+                                   Disabled="@(!_boardReady)"
+                                   OnClick="StartOrRestartGame">
+                            @(_gameStarted ? "Заново" : "Начать игру")
                         </MudButton>
                     </MudCardActions>
                 </MudCard>
 
-                <MudAlert Severity="Severity.Info">
-                    Сложность: Глубина 12
-                </MudAlert>
+                <MudCard Elevation="4" Class="play-ai-panel">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h5">Ходы партии</MudText>
+                            <MudText Typo="Typo.body2">История выводится справа в отдельном контейнере</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+
+                    <MudCardContent Class="play-ai-history-content">
+                        @if (_moveRows.Count == 0)
+                        {
+                            <MudText Typo="Typo.body2" Class="play-ai-empty-history">
+                                Ходы появятся здесь после начала партии.
+                            </MudText>
+                        }
+                        else
+                        {
+                            <div class="play-ai-move-table">
+                                <div class="play-ai-move-row play-ai-move-header">
+                                    <span>#</span>
+                                    <span>Белые</span>
+                                    <span>Чёрные</span>
+                                </div>
+
+                                @foreach (var move in _moveRows)
+                                {
+                                    <div class="play-ai-move-row">
+                                        <span>@move.Number.</span>
+                                        <span>@move.White</span>
+                                        <span>@move.Black</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </MudCardContent>
+                </MudCard>
             </MudStack>
         </MudItem>
     </MudGrid>
 </MudContainer>
 
+<style>
+    .play-ai-page {
+        padding-bottom: 2rem;
+    }
+
+    .play-ai-board-shell,
+    .play-ai-panel {
+        border-radius: 20px;
+    }
+
+    .play-ai-board-shell {
+        background: linear-gradient(160deg, rgba(34, 40, 49, 0.96), rgba(24, 28, 34, 0.96));
+    }
+
+    .play-ai-subtitle {
+        opacity: 0.85;
+    }
+
+    .play-ai-board-frame {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 0.5rem;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .play-ai-board {
+        width: min(100%, 620px);
+    }
+
+    .play-ai-difficulty {
+        border-radius: 14px;
+    }
+
+    .play-ai-history-content {
+        max-height: 520px;
+        overflow: auto;
+    }
+
+    .play-ai-empty-history {
+        opacity: 0.75;
+    }
+
+    .play-ai-move-table {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .play-ai-move-row {
+        display: grid;
+        grid-template-columns: 52px 1fr 1fr;
+        gap: 0.75rem;
+        align-items: center;
+        padding: 0.7rem 0.85rem;
+        border-radius: 14px;
+        background: rgba(127, 127, 127, 0.08);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .play-ai-move-header {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        font-weight: 700;
+        background: rgba(76, 175, 80, 0.16);
+        backdrop-filter: blur(6px);
+    }
+
+    @@media (max-width: 1200px) {
+        .play-ai-history-content {
+            max-height: 360px;
+        }
+    }
+</style>
+
 @code {
+    private const int DefaultDifficulty = 6;
+
+    private readonly IReadOnlyList<int> DifficultyLevels = Enumerable.Range(1, 20).ToArray();
+    private readonly List<MoveRow> _moveRows = new();
+
     private string _currentFen = "start";
+    private string _statusText = "Выберите сложность и нажмите \"Начать игру\".";
+    private Severity _statusSeverity = Severity.Info;
+    private int _selectedDifficulty = DefaultDifficulty;
+    private int _activeDifficulty = DefaultDifficulty;
+    private bool _boardReady;
+    private bool _gameStarted;
     private DotNetObjectReference<PlaywAI>? _objRef;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _selectedDifficulty = await LoadStoredDifficultyAsync();
+        _activeDifficulty = _selectedDifficulty;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (!firstRender)
         {
-            _objRef = DotNetObjectReference.Create(this);
-            // Инициализируем доску через наш JS-бридж
-            await JS.InvokeVoidAsync("chessBridge.initGame", _objRef, "chessBoard");
+            return;
         }
+
+        _objRef = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("chessBridge.initGame", _objRef, "chessBoard", _selectedDifficulty);
+        _boardReady = true;
     }
 
     [JSInvokable]
-    public void OnMovePerformed(string fen)
+    public Task OnGameStateChanged(string fen, string status, string[] moves, bool gameStarted, bool gameOver)
     {
         _currentFen = fen;
-        StateHasChanged();
+        _statusText = status;
+        _gameStarted = gameStarted;
+        _statusSeverity = ResolveStatusSeverity(status, gameStarted, gameOver);
+        RebuildMoveRows(moves);
+
+        return InvokeAsync(StateHasChanged);
     }
 
-    private async Task RestartGame()
+    private async Task StartOrRestartGame()
     {
+        if (!_boardReady)
+        {
+            return;
+        }
+
+        _activeDifficulty = NormalizeDifficulty(_selectedDifficulty);
         _currentFen = "start";
-        await JS.InvokeVoidAsync("chessBridge.reset");
+        _statusText = "Партия подготовлена. Ваш ход белыми.";
+        _statusSeverity = Severity.Success;
+        _moveRows.Clear();
+        _gameStarted = true;
+
+        await SaveStoredDifficultyAsync(_activeDifficulty);
+        await JS.InvokeVoidAsync("chessBridge.startNewGame", _activeDifficulty);
     }
 
-    public void Dispose()
+    private async Task<int> LoadStoredDifficultyAsync()
     {
-        _objRef?.Dispose();
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return DefaultDifficulty;
+            }
+
+            var storedDifficulty = await UserDifficultyService.GetDifficultyAsync(userId);
+            return NormalizeDifficulty(storedDifficulty ?? DefaultDifficulty);
+        }
+        catch
+        {
+            return DefaultDifficulty;
+        }
+    }
+
+    private async Task SaveStoredDifficultyAsync(int difficulty)
+    {
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return;
+            }
+
+            await UserDifficultyService.SetDifficultyAsync(userId, difficulty);
+        }
+        catch
+        {
+        }
+    }
+
+    private void RebuildMoveRows(IReadOnlyList<string>? moves)
+    {
+        _moveRows.Clear();
+
+        if (moves is null || moves.Count == 0)
+        {
+            return;
+        }
+
+        for (var i = 0; i < moves.Count; i += 2)
+        {
+            _moveRows.Add(new MoveRow
+            {
+                Number = (i / 2) + 1,
+                White = moves[i],
+                Black = i + 1 < moves.Count ? moves[i + 1] : "..."
+            });
+        }
+    }
+
+    private static int NormalizeDifficulty(int difficulty) => Math.Clamp(difficulty, 1, 20);
+
+    private static Severity ResolveStatusSeverity(string status, bool gameStarted, bool gameOver)
+    {
+        if (!gameStarted)
+        {
+            return Severity.Info;
+        }
+
+        if (gameOver)
+        {
+            return Severity.Error;
+        }
+
+        if (status.Contains("думает", StringComparison.OrdinalIgnoreCase))
+        {
+            return Severity.Warning;
+        }
+
+        return Severity.Success;
+    }
+
+    private static string GetDifficultyLabel(int difficulty)
+    {
+        var normalized = NormalizeDifficulty(difficulty);
+
+        if (normalized <= 4)
+        {
+            return $"Уровень {normalized}: лёгкий";
+        }
+
+        if (normalized <= 8)
+        {
+            return $"Уровень {normalized}: уверенный";
+        }
+
+        if (normalized <= 13)
+        {
+            return $"Уровень {normalized}: сильный";
+        }
+
+        if (normalized <= 17)
+        {
+            return $"Уровень {normalized}: очень сильный";
+        }
+
+        return $"Уровень {normalized}: максимум";
+    }
+
+    private static string GetDifficultyDescription(int difficulty)
+    {
+        var normalized = NormalizeDifficulty(difficulty);
+
+        if (normalized <= 4)
+        {
+            return "Подходит для первых партий: ИИ чаще ошибается и играет мягче.";
+        }
+
+        if (normalized <= 8)
+        {
+            return "Комфортный режим для практики: ИИ уже находит тактику, но ещё прощает неточности.";
+        }
+
+        if (normalized <= 13)
+        {
+            return "Серьёзная игра: ИИ стабильно считает варианты и наказывает за слабые ходы.";
+        }
+
+        if (normalized <= 17)
+        {
+            return "Продвинутый уровень: понадобится аккуратная игра без грубых ошибок.";
+        }
+
+        return "Максимальная сложность на этой странице: ИИ ищет самые точные продолжения.";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_objRef is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("chessBridge.destroy");
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
+        _objRef.Dispose();
+    }
+
+    private sealed class MoveRow
+    {
+        public int Number { get; init; }
+        public string White { get; init; } = string.Empty;
+        public string Black { get; init; } = string.Empty;
     }
 }

@@ -17,10 +17,12 @@
                 <DataAnnotationsValidator />
 
                 <MudTextField @bind-Value="LoginModel.Email"
-                              Label="Email"
-                              name="LoginModel.Email"
-                              Variant="Variant.Filled"
-                              Class="mb-4" />
+              Label="Email"
+              name="LoginModel.Email"
+              Variant="Variant.Filled"
+              Required="true"
+              RequiredError="Введите почту"
+              Class="mb-4" />
 
                 <MudTextField @bind-Value="LoginModel.Password"
                               Label="Пароль"
@@ -28,6 +30,11 @@
                               Variant="Variant.Filled"
                               InputType="InputType.Password"
                               Class="mb-4" />
+
+                            @if (!string.IsNullOrEmpty(_error))
+                            {
+                                <MudText Color="Color.Error" Typo="Typo.body2" Align="Align.Center" Class="mb-4">@_error</MudText>
+                            }
 
                 <MudButton ButtonType="ButtonType.Submit"
                            Variant="Variant.Filled"
