@@ -1,10 +1,12 @@
 @page "/regis"
 @using MudBlazor
 @using Chessss.Models
+@using Chessss.Services
 @using Microsoft.AspNetCore.Identity
 @using System.ComponentModel.DataAnnotations
 
 @inject UserManager<ApplicationUser> UserManager
+@inject PlayerProfileService PlayerProfiles
 @inject NavigationManager Nav
 
 <PageTitle>UltraChess - Registration</PageTitle>
@@ -101,15 +103,25 @@
             {
                 UserName = email,
                 Email = email,
-                Nickname = email.Split('@')[0],
+                Nickname = await PlayerProfiles.GenerateUniqueNicknameAsync(email),
                 EloRating = 1200,
                 RegisteredAt = DateTime.UtcNow
             };
+            newUser.NormalizedNickname = UserProfileRules.NormalizeNickname(newUser.Nickname);
 
             var result = await UserManager.CreateAsync(newUser, RegModel.Password);
 
             if (result.Succeeded)
             {
+                var roleResult = await UserManager.AddToRoleAsync(newUser, UltraChessRoles.User);
+
+                if (!roleResult.Succeeded)
+                {
+                    await UserManager.DeleteAsync(newUser);
+                    _serverError = string.Join(" ", roleResult.Errors.Select(ToUserFriendlyError));
+                    return;
+                }
+
                 Nav.NavigateTo("/auth?registered=1", forceLoad: true);
             }
             else

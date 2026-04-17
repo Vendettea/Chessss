@@ -1,2 +1,117 @@
-﻿@page "/leaderboard"
+@page "/leaderboard"
+@rendermode InteractiveServer
+@using Chessss.Services
 @using MudBlazor
+
+@inject PlayerProfileService PlayerProfiles
+
+<PageTitle>UltraChess - Лидерборд</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-8">
+    <MudStack Spacing="3">
+        <div>
+            <MudText Typo="Typo.h3">Лидерборд</MudText>
+            <MudText Typo="Typo.body2" Class="leaderboard-subtitle">
+                В рейтинге показаны пользователи, у которых уже есть хотя бы одна завершенная рейтинговая партия в статистике профиля.
+            </MudText>
+        </div>
+
+        @if (_loading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Success" />
+        }
+        else if (_players.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                Пока нет пользователей с завершенными рейтинговыми партиями.
+            </MudAlert>
+        }
+        else
+        {
+            <MudPaper Elevation="3" Class="leaderboard-table-shell">
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>Место</th>
+                            <th>Игрок</th>
+                            <th>Elo</th>
+                            <th>Игры</th>
+                            <th>Победы</th>
+                            <th>Поражения</th>
+                            <th>Ничьи</th>
+                            <th>WinRate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var player in _players)
+                        {
+                            <tr>
+                                <td class="rank-cell">#@player.Rank</td>
+                                <td>
+                                    <MudLink Href="@($"/player/{player.Id}")" Color="Color.Success" Underline="Underline.Hover">
+                                        @player.Nickname
+                                    </MudLink>
+                                </td>
+                                <td>@player.EloRating</td>
+                                <td>@player.GamesPlayed</td>
+                                <td>@player.Wins</td>
+                                <td>@player.Losses</td>
+                                <td>@player.Draws</td>
+                                <td>@player.WinRateText</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </MudPaper>
+        }
+    </MudStack>
+</MudContainer>
+
+<style>
+    .leaderboard-subtitle {
+        opacity: 0.78;
+    }
+
+    .leaderboard-table-shell {
+        overflow-x: auto;
+        border-radius: 12px;
+    }
+
+    .leaderboard-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 760px;
+    }
+
+    .leaderboard-table th,
+    .leaderboard-table td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .leaderboard-table th {
+        font-weight: 700;
+        opacity: 0.78;
+    }
+
+    .leaderboard-table tbody tr:hover {
+        background: rgba(74, 222, 128, 0.08);
+    }
+
+    .rank-cell {
+        font-weight: 700;
+    }
+</style>
+
+@code {
+    private IReadOnlyList<PlayerProfileSummary> _players = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _players = await PlayerProfiles.GetLeaderboardAsync();
+        _loading = false;
+    }
+}

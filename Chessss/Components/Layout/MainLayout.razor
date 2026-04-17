@@ -46,7 +46,7 @@
 
                 @if (_isAuthenticated)
                 {
-                    <div class="profile-card d-flex align-center pa-2 w-100">
+                    <div class="profile-card profile-link d-flex align-center pa-2 w-100" @onclick='() => Nav.NavigateTo("/profile")'>
                         <MudAvatar Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small">
                             <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
                         </MudAvatar>
@@ -56,7 +56,7 @@
                             <MudText Typo="Typo.body2" Class="ml-3 account-name">@_accountDisplayName</MudText>
                         }
 
-                        <form method="post" action="/logout" class="@(_isMini ? "logout-form-mini" : "logout-form")">
+                        <form method="post" action="/logout" class="@(_isMini ? "logout-form-mini" : "logout-form")" @onclick:stopPropagation="true">
                             <AntiforgeryToken />
                             <button type="submit" class="logout-button" title="Выйти">
                                 <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Small" />

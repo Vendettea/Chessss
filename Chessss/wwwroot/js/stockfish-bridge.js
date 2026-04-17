@@ -12,7 +12,7 @@ window.stockfishBridge = {
         
         console.log("Инициализация stockfishBridge. Сложность:", this.difficulty);
         
-        // Пытаемся загрузить Stockfish из CDN
+        // Загрузка Stockfish из CDN
         try {
             if (typeof Stockfish !== 'undefined') {
                 this.stockfish = Stockfish();
@@ -103,7 +103,7 @@ window.stockfishBridge = {
         this.dotNetRef.invokeMethodAsync('RequestServerMove');
     },
 
-    // НОВОЕ: Просто отрисовка доски для обучающих гайдов
+    // Отрисовка доски для обучающих гайдов
     initBoardOnly: function (elementId, fen) {
         var pos = (fen && fen !== "") ? fen : 'start';
         Chessboard(elementId, {

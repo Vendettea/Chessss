@@ -4,8 +4,6 @@ using Chessss.Models;
 
 namespace Chessss.Data
 {
-    // 1. ВАЖНО: Теперь мы наследуемся от IdentityDbContext, а не просто от DbContext!
-    // И передаем туда нашу новую модель ApplicationUser.
     public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
@@ -18,10 +16,22 @@ namespace Chessss.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // 2. ВАЖНО: Обязательно вызываем базовый метод, иначе таблицы Identity не создадутся!
+            // Обязательно вызываем базовый метод иначе таблицы Identity не создадутся
             base.OnModelCreating(modelBuilder);
 
-            // Твоя настройка Many-to-Many остается без изменений
+            modelBuilder.Entity<ApplicationUser>(entity =>
+            {
+                entity.Property(u => u.Nickname)
+                    .HasMaxLength(20);
+
+                entity.Property(u => u.NormalizedNickname)
+                    .HasMaxLength(20);
+
+                entity.HasIndex(u => u.NormalizedNickname)
+                    .IsUnique()
+                    .HasDatabaseName("UserNicknameIndex");
+            });
+
             modelBuilder.Entity<TrainingMaterial>()
                 .HasMany(m => m.Tags)
                 .WithMany(t => t.Materials)

@@ -40,6 +40,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 
 builder.Services.AddScoped<TrainingService>();
 builder.Services.AddScoped<Chessss.Services.UserDifficultyService>();
+builder.Services.AddScoped<Chessss.Services.PlayerProfileService>();
 builder.Services.AddMudServices();
 builder.Services.AddRazorPages();
 builder.Services.AddRazorComponents()
@@ -52,6 +53,9 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     db.Database.Migrate();
+
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    await SeedIdentityRolesAsync(roleManager);
 
     if (!db.Tags.Any())
     {
@@ -155,3 +159,14 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+static async Task SeedIdentityRolesAsync(RoleManager<IdentityRole> roleManager)
+{
+    foreach (var roleName in UltraChessRoles.All)
+    {
+        if (!await roleManager.RoleExistsAsync(roleName))
+        {
+            await roleManager.CreateAsync(new IdentityRole(roleName));
+        }
+    }
+}

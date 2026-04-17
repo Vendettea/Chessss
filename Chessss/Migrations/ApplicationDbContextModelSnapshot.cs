@@ -29,6 +29,9 @@ namespace Chessss.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("Draws")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("EloRating")
                         .HasColumnType("INTEGER");
 
@@ -45,7 +48,15 @@ namespace Chessss.Migrations
                     b.Property<DateTimeOffset?>("LockoutEnd")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("Losses")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Nickname")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NormalizedNickname")
+                        .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("NormalizedEmail")
@@ -81,10 +92,20 @@ namespace Chessss.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("Wins")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("GamesPlayed")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("Id");
 
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");
+
+                    b.HasIndex("NormalizedNickname")
+                        .IsUnique()
+                        .HasDatabaseName("UserNicknameIndex");
 
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
