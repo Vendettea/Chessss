@@ -1,11 +1,8 @@
-﻿@page "/auth"
-@using Microsoft.AspNetCore.Identity
-@using Chessss.Models
+@page "/auth"
 @using System.ComponentModel.DataAnnotations
-@inject SignInManager<ApplicationUser> SignInManager
-@inject NavigationManager Nav
+@using Microsoft.AspNetCore.Components
 
-<div Class="d-flex align-center justify-center" style="min-height: 80vh;">
+<div class="d-flex align-center justify-center" style="min-height: 80vh;">
     <MudContainer MaxWidth="MaxWidth.Small">
         <MudPaper Elevation="4"
                   Class="pa-8"
@@ -13,28 +10,36 @@
 
             <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-6 fw-bold" Style="color: white !important;">Вход</MudText>
 
-            <EditForm Model="LoginModel" OnValidSubmit="HandleLogin" FormName="LoginForm" method="post">
-                <DataAnnotationsValidator />
+            @if (!string.IsNullOrEmpty(SuccessMessage))
+            {
+                <MudAlert Severity="Severity.Success" Class="mb-4">@SuccessMessage</MudAlert>
+            }
+
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">@ErrorMessage</MudAlert>
+            }
+
+            <form method="post" action="/auth/login">
+                <AntiforgeryToken />
 
                 <MudTextField @bind-Value="LoginModel.Email"
-              Label="Email"
-              name="LoginModel.Email"
-              Variant="Variant.Filled"
-              Required="true"
-              RequiredError="Введите почту"
-              Class="mb-4" />
+                              Label="Email"
+                              name="email"
+                              Variant="Variant.Filled"
+                              InputType="InputType.Email"
+                              Required="true"
+                              RequiredError="Введите почту"
+                              Class="mb-4" />
 
                 <MudTextField @bind-Value="LoginModel.Password"
                               Label="Пароль"
-                              name="LoginModel.Password"
+                              name="password"
                               Variant="Variant.Filled"
                               InputType="InputType.Password"
+                              Required="true"
+                              RequiredError="Введите пароль"
                               Class="mb-4" />
-
-                            @if (!string.IsNullOrEmpty(_error))
-                            {
-                                <MudText Color="Color.Error" Typo="Typo.body2" Align="Align.Center" Class="mb-4">@_error</MudText>
-                            }
 
                 <MudButton ButtonType="ButtonType.Submit"
                            Variant="Variant.Filled"
@@ -59,7 +64,7 @@
                         Зарегистрироваться
                     </MudLink>
                 </div>
-            </EditForm>
+            </form>
         </MudPaper>
     </MudContainer>
 </div>
@@ -68,10 +73,44 @@
     [CascadingParameter]
     public bool IsDarkMode { get; set; }
 
-    [SupplyParameterFromForm]
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? Error { get; set; }
+
+    [SupplyParameterFromQuery(Name = "registered")]
+    public string? Registered { get; set; }
+
+    [SupplyParameterFromQuery(Name = "loggedOut")]
+    public string? LoggedOut { get; set; }
+
     public LoginInput LoginModel { get; set; } = new();
 
-    private string? _error;
+    private string? ErrorMessage => Error switch
+    {
+        "missing" => "Введите email и пароль.",
+        "invalid" => "Неверный email или пароль.",
+        "locked" => "Аккаунт временно заблокирован. Попробуйте позже.",
+        "notallowed" => "Вход пока недоступен. Возможно, нужно подтвердить email.",
+        "form" => "Форма устарела. Обновите страницу и попробуйте снова.",
+        _ => null
+    };
+
+    private string? SuccessMessage
+    {
+        get
+        {
+            if (Registered == "1")
+            {
+                return "Регистрация прошла успешно. Теперь войдите в аккаунт.";
+            }
+
+            if (LoggedOut == "1")
+            {
+                return "Вы вышли из аккаунта.";
+            }
+
+            return null;
+        }
+    }
 
     public class LoginInput
     {
@@ -81,20 +120,5 @@
 
         [Required]
         public string Password { get; set; } = "";
-    }
-
-    private async Task HandleLogin()
-    {
-        _error = null;
-        var result = await SignInManager.PasswordSignInAsync(LoginModel.Email, LoginModel.Password, true, false);
-
-        if (result.Succeeded)
-        {
-            Nav.NavigateTo("/", forceLoad: true);
-        }
-        else
-        {
-            _error = "Неверный логин или пароль.";
-        }
     }
 }

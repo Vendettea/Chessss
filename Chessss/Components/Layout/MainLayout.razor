@@ -1,5 +1,9 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 @using MudBlazor
+@using Chessss.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
 
 <MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="_myTheme" />
 <MudDialogProvider />
@@ -7,16 +11,12 @@
 <MudPopoverProvider />
 
 <MudLayout Style="overflow: hidden;">
-    @* БОКОВАЯ ПАНЕЛЬ *@
     <MudDrawer Open="true"
                Variant="DrawerVariant.Persistent"
                Class="@(_isMini ? "sb-mini" : "sb-full")"
-               Style='$"background-color: {(_isDarkMode ? "#1a1a1a" : "#ffffff")};
-                                            border-right: 1px solid {(_isDarkMode ? "#333" : "#e0e0e0")};
-                                            transition: 0.3s;"'>
+               Style="@($"background-color: {(_isDarkMode ? "#1a1a1a" : "#ffffff")}; border-right: 1px solid {(_isDarkMode ? "#333" : "#e0e0e0")}; transition: 0.3s;")">
 
         <div class="d-flex flex-column h-100">
-            @* Шапка *@
             <div class="pa-4 d-flex align-center justify-space-between" style="height: 64px;">
                 <div class="d-flex align-center">
                     <MudAvatar Image="images/logo.png" Size="Size.Medium" @onclick='() => Nav.NavigateTo("/")' Style="cursor:pointer;" />
@@ -25,11 +25,10 @@
                         <MudText Typo="Typo.h6" Class="ml-3 fw-bold">UltraChess</MudText>
                     }
                 </div>
-                <MudIconButton Icon="@(_isMini? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ChevronLeft)"
+                <MudIconButton Icon="@(_isMini ? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ChevronLeft)"
                                OnClick="ToggleDrawer" Size="Size.Small" />
             </div>
 
-            @* Меню *@
             <MudNavMenu Class="flex-grow-1 px-2">
                 <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">@(!_isMini ? "Главная" : "")</MudNavLink>
                 <MudNavLink Href="/playwithai" Icon="@Icons.Material.Filled.SmartToy">@(!_isMini ? "Играть с ИИ" : "")</MudNavLink>
@@ -38,30 +37,53 @@
                 <MudNavLink Href="/leaderboard" Icon="@Icons.Material.Filled.Leaderboard">@(!_isMini ? "Таблица лидеров" : "")</MudNavLink>
             </MudNavMenu>
 
-            @* Футер *@
             <div class="pa-2 d-flex flex-column align-center" style="border-top: 1px solid rgba(128,128,128,0.2);">
                 <MudNavLink Href="/feedback" Icon="@Icons.Material.Filled.ChatBubbleOutline" Class="w-100">@(!_isMini ? "Feedback" : "")</MudNavLink>
 
                 <div class="my-3 cursor-pointer" @onclick="ToggleTheme">
-                    <img src="@(_isDarkMode ? "images/light.png" : "images/dark.png")" style="width:30px; height:30px; " />
+                    <img src="@(_isDarkMode ? "images/light.png" : "images/dark.png")" style="width:30px; height:30px;" />
                 </div>
 
-                <div class="profile-card d-flex align-center pa-2 w-100" @onclick='() => Nav.NavigateTo("/auth")' style="cursor:pointer;">
-                    <MudAvatar Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small"><MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" /></MudAvatar>
-                    @if (!_isMini)
-                    {
-                        <MudText Typo="Typo.body2" Class="ml-3">Профиль</MudText>
-                    }
-                </div>
+                @if (_isAuthenticated)
+                {
+                    <div class="profile-card d-flex align-center pa-2 w-100">
+                        <MudAvatar Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small">
+                            <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
+                        </MudAvatar>
+
+                        @if (!_isMini)
+                        {
+                            <MudText Typo="Typo.body2" Class="ml-3 account-name">@_accountDisplayName</MudText>
+                        }
+
+                        <form method="post" action="/logout" class="@(_isMini ? "logout-form-mini" : "logout-form")">
+                            <AntiforgeryToken />
+                            <button type="submit" class="logout-button" title="Выйти">
+                                <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Small" />
+                            </button>
+                        </form>
+                    </div>
+                }
+                else
+                {
+                    <div class="profile-card profile-link d-flex align-center pa-2 w-100" @onclick='() => Nav.NavigateTo("/auth")'>
+                        <MudAvatar Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small">
+                            <MudIcon Icon="@Icons.Material.Filled.Login" Size="Size.Small" />
+                        </MudAvatar>
+
+                        @if (!_isMini)
+                        {
+                            <MudText Typo="Typo.body2" Class="ml-3">Войти</MudText>
+                        }
+                    </div>
+                }
             </div>
         </div>
     </MudDrawer>
 
-    @* ОСНОВНОЙ КОНТЕНТ *@
     <MudMainContent Class="@(_isMini ? "main-mini" : "main-full")"
                     Style="@($"background-color: {(_isDarkMode ? "#121212" : "#f5f5f5")}; min-height: 100vh; transition: 0.3s;")">
         <div class="page-container">
-            @* Передаем значение темы всем страницам внутри *@
             <CascadingValue Value="_isDarkMode">
                 @Body
             </CascadingValue>
@@ -143,20 +165,59 @@
         transition: transform 0.2s ease;
     }
 
-        .theme-btn img:hover {
-            transform: scale(1.1);
-        }
+    .theme-btn img:hover {
+        transform: scale(1.1);
+    }
 
     .profile-card {
         background: rgba(128, 128, 128, 0.1);
         border-radius: 12px;
-        cursor: pointer;
         transition: background 0.2s;
     }
 
-        .profile-card:hover {
-            background: rgba(128, 128, 128, 0.2);
-        }
+    .profile-link {
+        cursor: pointer;
+    }
+
+    .profile-card:hover {
+        background: rgba(128, 128, 128, 0.2);
+    }
+
+    .account-name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .logout-form {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+    }
+
+    .logout-form-mini {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .logout-button {
+        width: 32px;
+        height: 32px;
+        border: 0;
+        border-radius: 50%;
+        background: transparent;
+        color: inherit;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+
+    .logout-button:hover {
+        background: rgba(128, 128, 128, 0.2);
+    }
 
     .no-select {
         user-select: none;
@@ -176,11 +237,69 @@
 </style>
 
 @code {
-    [Inject] NavigationManager Nav { get; set; }
-    bool _isMini = false;
-    bool _isDarkMode = true;
-    void ToggleDrawer() => _isMini = !_isMini;
-    void ToggleTheme() { _isDarkMode = !_isDarkMode; StateHasChanged(); }
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    [Inject]
+    private NavigationManager Nav { get; set; } = default!;
+
+    private bool _isMini = false;
+    private bool _isDarkMode = true;
+    private bool _isAuthenticated;
+    private string _accountDisplayName = "Войти";
+
+    private void ToggleDrawer() => _isMini = !_isMini;
+
+    private void ToggleTheme()
+    {
+        _isDarkMode = !_isDarkMode;
+        StateHasChanged();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (AuthenticationStateTask is null)
+        {
+            SetAnonymousAccountState();
+            return;
+        }
+
+        var authState = await AuthenticationStateTask;
+        var principal = authState.User;
+
+        if (principal.Identity?.IsAuthenticated != true)
+        {
+            SetAnonymousAccountState();
+            return;
+        }
+
+        _isAuthenticated = true;
+        var user = await UserManager.GetUserAsync(principal);
+        var email = user?.Email ?? principal.Identity?.Name ?? "";
+        _accountDisplayName = GetDisplayName(user?.Nickname, email);
+    }
+
+    private void SetAnonymousAccountState()
+    {
+        _isAuthenticated = false;
+        _accountDisplayName = "Войти";
+    }
+
+    private static string GetDisplayName(string? nickname, string? email)
+    {
+        if (!string.IsNullOrWhiteSpace(nickname))
+        {
+            return nickname;
+        }
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            var atIndex = email.IndexOf('@');
+            return atIndex > 0 ? email[..atIndex] : email;
+        }
+
+        return "Аккаунт";
+    }
 
     private MudTheme _myTheme = new MudTheme()
     {

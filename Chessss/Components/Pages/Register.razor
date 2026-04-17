@@ -1,13 +1,10 @@
-﻿@page "/regis"
+@page "/regis"
 @using MudBlazor
-@using Chessss.Data
 @using Chessss.Models
-@using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Identity
 @using System.ComponentModel.DataAnnotations
 
 @inject UserManager<ApplicationUser> UserManager
-@inject ApplicationDbContext DbContext
 @inject NavigationManager Nav
 
 <PageTitle>UltraChess - Registration</PageTitle>
@@ -77,12 +74,12 @@
     public RegisterInput Model { get; set; } = new();
 
     private RegisterInput RegModel => Model ??= new();
-    private string _serverError;
+    private string? _serverError;
 
     public class RegisterInput
     {
         [Required(ErrorMessage = "Введите Email")]
-        [RegularExpression(@"^[^@\s]+@[^@\s]+\.(com|ru|net|org|by)$", ErrorMessage = "Разрешены домены: .com, .ru, .net, .org, .by")]
+        [EmailAddress(ErrorMessage = "Введите корректный Email")]
         public string Email { get; set; } = "";
 
         [Required(ErrorMessage = "Введите пароль")]
@@ -96,14 +93,15 @@
     private async Task HandleRegister()
     {
         _serverError = null;
+        var email = RegModel.Email.Trim();
 
         try
         {
             ApplicationUser newUser = new ApplicationUser
             {
-                UserName = RegModel.Email,
-                Email = RegModel.Email,
-                Nickname = RegModel.Email.Split('@')[0],
+                UserName = email,
+                Email = email,
+                Nickname = email.Split('@')[0],
                 EloRating = 1200,
                 RegisteredAt = DateTime.UtcNow
             };
@@ -112,18 +110,11 @@
 
             if (result.Succeeded)
             {
-                // В SSR перенаправление происходит мгновенно
-                Nav.NavigateTo("/auth");
+                Nav.NavigateTo("/auth?registered=1", forceLoad: true);
             }
             else
             {
-                foreach (var error in result.Errors)
-                {
-                    if (error.Code == "DuplicateUserName" || error.Code == "DuplicateEmail")
-                        _serverError = "Пользователь с такой почтой уже есть!";
-                    else
-                        _serverError = "Ошибка регистрации: проверьте данные";
-                }
+                _serverError = string.Join(" ", result.Errors.Select(ToUserFriendlyError));
             }
         }
         catch (Exception ex)
@@ -131,5 +122,19 @@
             _serverError = "Ошибка сервера";
             Console.WriteLine(ex.Message);
         }
+    }
+
+    private static string ToUserFriendlyError(IdentityError error)
+    {
+        return error.Code switch
+        {
+            "DuplicateUserName" or "DuplicateEmail" => "Пользователь с такой почтой уже существует.",
+            "PasswordTooShort" => "Пароль слишком короткий.",
+            "PasswordRequiresDigit" => "Пароль должен содержать хотя бы одну цифру.",
+            "PasswordRequiresLower" => "Пароль должен содержать строчную букву.",
+            "PasswordRequiresUpper" => "Пароль должен содержать заглавную букву.",
+            "PasswordRequiresNonAlphanumeric" => "Пароль должен содержать специальный символ.",
+            _ => error.Description
+        };
     }
 }
