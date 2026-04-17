@@ -5,6 +5,8 @@
 @inject IJSRuntime JS
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject Chessss.Services.UserDifficultyService UserDifficultyService
+@inject Chessss.Services.GameResultService GameResults
+@inject ISnackbar Snackbar
 @implements IAsyncDisposable
 
 <PageTitle>UltraChess - Игра с ИИ</PageTitle>
@@ -66,10 +68,16 @@
                                 @_statusText
                             </MudAlert>
 
+                            @if (!string.IsNullOrWhiteSpace(_resultSaveText))
+                            {
+                                <MudAlert Severity="@_resultSaveSeverity" Variant="Variant.Outlined">
+                                    @_resultSaveText
+                                </MudAlert>
+                            }
+
                             <MudPaper Class="px-3 py-2" Outlined="true">
                                 <MudText Typo="Typo.caption" Class="d-block">Текущая сложность партии</MudText>
                                 <MudText Typo="Typo.body1">Уровень @_activeDifficulty</MudText>
-                                <MudText Typo="Typo.caption" Class="d-block mt-1">FEN: @_currentFen</MudText>
                             </MudPaper>
                         </MudStack>
                     </MudCardContent>
@@ -81,6 +89,31 @@
                                    Disabled="@(!_boardReady)"
                                    OnClick="StartOrRestartGame">
                             @(_gameStarted ? "Заново" : "Начать игру")
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+
+                <MudCard Elevation="4" Class="play-ai-panel">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h5">PGN партии</MudText>
+                            <MudText Typo="Typo.body2">Полная последовательность ходов для анализа</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+
+                    <MudCardContent>
+                        <textarea class="play-ai-pgn" readonly>@GetPgnDisplayText()</textarea>
+                        <MudText Typo="Typo.caption" Class="d-block mt-2 play-ai-fen">FEN: @_currentFen</MudText>
+                    </MudCardContent>
+
+                    <MudCardActions>
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Success"
+                                   FullWidth="true"
+                                   Disabled="@(string.IsNullOrWhiteSpace(_currentPgn))"
+                                   StartIcon="@Icons.Material.Filled.ContentCopy"
+                                   OnClick="CopyPgnAsync">
+                            Скопировать PGN
                         </MudButton>
                     </MudCardActions>
                 </MudCard>
@@ -171,6 +204,26 @@
         opacity: 0.75;
     }
 
+    .play-ai-pgn {
+        width: 100%;
+        min-height: 150px;
+        resize: vertical;
+        padding: 0.85rem;
+        border: 1px solid rgba(128, 128, 128, 0.32);
+        border-radius: 8px;
+        background: rgba(127, 127, 127, 0.08);
+        color: inherit;
+        font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+        font-size: 0.92rem;
+        line-height: 1.45;
+        white-space: pre-wrap;
+    }
+
+    .play-ai-fen {
+        opacity: 0.72;
+        overflow-wrap: anywhere;
+    }
+
     .play-ai-move-table {
         display: flex;
         flex-direction: column;
@@ -211,12 +264,17 @@
     private readonly List<MoveRow> _moveRows = new();
 
     private string _currentFen = "start";
+    private string _currentPgn = string.Empty;
     private string _statusText = "Выберите сложность и нажмите \"Начать игру\".";
+    private string? _resultSaveText;
     private Severity _statusSeverity = Severity.Info;
+    private Severity _resultSaveSeverity = Severity.Info;
     private int _selectedDifficulty = DefaultDifficulty;
     private int _activeDifficulty = DefaultDifficulty;
     private bool _boardReady;
     private bool _gameStarted;
+    private bool _resultRecordedForCurrentGame;
+    private string? _recordedTerminalSignature;
     private DotNetObjectReference<PlaywAI>? _objRef;
 
     protected override async Task OnInitializedAsync()
@@ -238,15 +296,28 @@
     }
 
     [JSInvokable]
-    public Task OnGameStateChanged(string fen, string status, string[] moves, bool gameStarted, bool gameOver)
+    public async Task OnGameStateChanged(
+        string fen,
+        string status,
+        string[] moves,
+        bool gameStarted,
+        bool gameOver,
+        string resultCode,
+        string pgn)
     {
         _currentFen = fen;
+        _currentPgn = pgn ?? string.Empty;
         _statusText = status;
         _gameStarted = gameStarted;
         _statusSeverity = ResolveStatusSeverity(status, gameStarted, gameOver);
         RebuildMoveRows(moves);
 
-        return InvokeAsync(StateHasChanged);
+        if (gameStarted && gameOver && Chessss.Services.GameResultService.IsTerminalResultCode(resultCode))
+        {
+            await TryRecordAiGameResultAsync(resultCode, fen, moves.Length);
+        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task StartOrRestartGame()
@@ -258,10 +329,15 @@
 
         _activeDifficulty = NormalizeDifficulty(_selectedDifficulty);
         _currentFen = "start";
+        _currentPgn = string.Empty;
         _statusText = "Партия подготовлена. Ваш ход белыми.";
+        _resultSaveText = null;
         _statusSeverity = Severity.Success;
+        _resultSaveSeverity = Severity.Info;
         _moveRows.Clear();
         _gameStarted = true;
+        _resultRecordedForCurrentGame = false;
+        _recordedTerminalSignature = null;
 
         await SaveStoredDifficultyAsync(_activeDifficulty);
         await JS.InvokeVoidAsync("chessBridge.startNewGame", _activeDifficulty);
@@ -306,6 +382,77 @@
         {
         }
     }
+
+    private async Task TryRecordAiGameResultAsync(string resultCode, string finalFen, int moveCount)
+    {
+        var terminalSignature = BuildTerminalSignature(finalFen, moveCount);
+
+        if (_resultRecordedForCurrentGame || _recordedTerminalSignature == terminalSignature)
+        {
+            return;
+        }
+
+        _resultRecordedForCurrentGame = true;
+        _recordedTerminalSignature = terminalSignature;
+
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                _resultSaveSeverity = Severity.Info;
+                _resultSaveText = "Партия завершена. Войдите в аккаунт, чтобы следующие результаты попадали в статистику.";
+                return;
+            }
+
+            var saved = await GameResults.RecordAiGameResultAsync(userId, resultCode);
+
+            if (saved)
+            {
+                _resultSaveSeverity = Severity.Success;
+                _resultSaveText = "Результат партии сохранен в профиль.";
+                return;
+            }
+
+            _resultSaveSeverity = Severity.Warning;
+            _resultSaveText = "Партия завершена, но результат не был записан в статистику.";
+        }
+        catch
+        {
+            _resultSaveSeverity = Severity.Warning;
+            _resultSaveText = "Партия завершена, но результат не удалось сохранить.";
+        }
+    }
+
+    private async Task CopyPgnAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_currentPgn))
+        {
+            Snackbar.Add("PGN пока пуст.", Severity.Info);
+            return;
+        }
+
+        try
+        {
+            var copied = await JS.InvokeAsync<bool>("chessBridge.copyText", _currentPgn);
+            Snackbar.Add(copied ? "PGN скопирован." : "Не удалось скопировать PGN.", copied ? Severity.Success : Severity.Warning);
+        }
+        catch (JSException)
+        {
+            Snackbar.Add("Не удалось скопировать PGN.", Severity.Warning);
+        }
+    }
+
+    private string GetPgnDisplayText()
+    {
+        return string.IsNullOrWhiteSpace(_currentPgn)
+            ? "PGN появится здесь после первого хода."
+            : _currentPgn;
+    }
+
+    private static string BuildTerminalSignature(string finalFen, int moveCount) => $"{moveCount}|{finalFen}";
 
     private void RebuildMoveRows(IReadOnlyList<string>? moves)
     {

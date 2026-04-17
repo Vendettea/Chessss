@@ -189,8 +189,63 @@ window.chessBridge = {
             customStatus || this.getStatusText(),
             this.game.history(),
             this.gameStarted,
-            this.game.game_over()
+            this.game.game_over(),
+            this.getResultCode(),
+            this.getPgn()
         );
+    },
+
+    getResultCode: function () {
+        if (!this.gameStarted || !this.game || !this.game.game_over()) {
+            return 'none';
+        }
+
+        if (this.game.in_checkmate()) {
+            return this.game.turn() === 'w' ? 'loss' : 'win';
+        }
+
+        if (this.game.in_stalemate() || this.game.in_draw()) {
+            return 'draw';
+        }
+
+        return 'none';
+    },
+
+    getPgn: function () {
+        if (!this.game) {
+            return '';
+        }
+
+        let pgn = '';
+
+        try {
+            pgn = this.game.pgn({ max_width: 80, newline_char: '\n' });
+        } catch (error) {
+            pgn = this.game.pgn();
+        }
+
+        const result = this.getPgnResult();
+
+        if (result === '*' || !pgn) {
+            return pgn;
+        }
+
+        return /\s(1-0|0-1|1\/2-1\/2|\*)$/.test(pgn.trim())
+            ? pgn
+            : `${pgn} ${result}`;
+    },
+
+    getPgnResult: function () {
+        switch (this.getResultCode()) {
+            case 'win':
+                return '1-0';
+            case 'loss':
+                return '0-1';
+            case 'draw':
+                return '1/2-1/2';
+            default:
+                return '*';
+        }
     },
 
     getStatusText: function () {
@@ -271,6 +326,39 @@ window.chessBridge = {
         }
 
         return Math.min(20, Math.max(1, parsed));
+    },
+
+    copyText: async function (text) {
+        if (!text) {
+            return false;
+        }
+
+        if (navigator.clipboard && window.isSecureContext) {
+            try {
+                await navigator.clipboard.writeText(text);
+                return true;
+            } catch (error) {
+                console.warn('Clipboard API failed, falling back to execCommand.', error);
+            }
+        }
+
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        textarea.style.top = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+
+        try {
+            return document.execCommand('copy');
+        } catch (error) {
+            console.warn('Unable to copy text.', error);
+            return false;
+        } finally {
+            document.body.removeChild(textarea);
+        }
     },
 
     destroy: function () {

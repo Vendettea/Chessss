@@ -41,6 +41,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddScoped<TrainingService>();
 builder.Services.AddScoped<Chessss.Services.UserDifficultyService>();
 builder.Services.AddScoped<Chessss.Services.PlayerProfileService>();
+builder.Services.AddScoped<Chessss.Services.GameResultService>();
 builder.Services.AddMudServices();
 builder.Services.AddRazorPages();
 builder.Services.AddRazorComponents()
