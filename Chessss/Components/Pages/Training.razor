@@ -13,12 +13,6 @@
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-12">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
         <MudText Typo="Typo.h3" Align="Align.Left">Гайды по шахматам</MudText>
-        <MudButton Variant="Variant.Filled" 
-                   Color="Color.Success" 
-                   StartIcon="@Icons.Material.Filled.Add"
-                   OnClick="@((e) => OpenCreateDialog())">
-            Создать гайд
-        </MudButton>
     </div>
 
     <MudPaper Class="pa-6 mb-8" Elevation="3">
@@ -133,20 +127,6 @@
         }
 
         _filteredMaterials = query.ToList();
-    }
-
-    private async Task OpenCreateDialog()
-    {
-        var parameters = new DialogParameters<TrainingMaterialDialog>();
-        parameters.Add(x => x.Material, new TrainingMaterial());
-
-        var dialog = await DialogService.ShowAsync<TrainingMaterialDialog>("Создать новый гайд", parameters);
-        var result = await dialog.Result;
-
-        if (!result.Canceled)
-        {
-            await RefreshMaterials();
-        }
     }
 
     private async Task RefreshMaterials()

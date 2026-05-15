@@ -3,10 +3,18 @@ window.chessBridge = {
     board: null,
     engine: null,
     dotNetHelper: null,
+    boardElement: null,
+    resizeHandler: null,
+    resizeObserver: null,
+    squareClickHandler: null,
     difficulty: 6,
     gameStarted: false,
     aiThinking: false,
-    resizeHandler: null,
+    playerColor: 'white',
+    gameFinishedByResignation: false,
+    botRequestId: 0,
+    selectedSquare: null,
+    highlightedSquares: [],
 
     initGame: function (dotNetHelper, boardId, difficulty) {
         this.destroy();
@@ -15,44 +23,35 @@ window.chessBridge = {
         this.difficulty = this.normalizeDifficulty(difficulty);
         this.game = new Chess();
         this.engine = this.createEngine();
+        this.playerColor = 'white';
+        this.gameFinishedByResignation = false;
+        this.selectedSquare = null;
+        this.highlightedSquares = [];
+        this.boardElement = document.getElementById(boardId);
 
         const onDragStart = (source, piece) => {
-            if (!this.gameStarted || this.aiThinking || this.game.game_over()) {
+            if (!this.canPlayerMove()) {
+                this.clearSelection();
                 return false;
             }
 
-            if (this.game.turn() !== 'w') {
+            const playerPrefix = this.playerColor === 'white' ? /^w/ : /^b/;
+
+            if (!playerPrefix.test(piece)) {
                 return false;
             }
 
-            return piece.search(/^b/) === -1;
+            this.selectSquare(source);
+            return true;
         };
 
         const onDrop = (source, target) => {
-            if (!this.gameStarted || this.aiThinking || this.game.turn() !== 'w') {
+            if (!this.canPlayerMove()) {
+                this.clearSelection();
                 return 'snapback';
             }
 
-            const move = this.game.move({
-                from: source,
-                to: target,
-                promotion: 'q'
-            });
-
-            if (move === null) {
-                return 'snapback';
-            }
-
-            this.syncBoard();
-            this.notifyState();
-
-            if (this.game.game_over()) {
-                return;
-            }
-
-            this.aiThinking = true;
-            this.notifyState('ИИ думает над ответом...');
-            window.setTimeout(() => this.askBot(), 250);
+            return this.tryPlayerMove(source, target) ? undefined : 'snapback';
         };
 
         const onSnapEnd = () => this.syncBoard();
@@ -60,22 +59,38 @@ window.chessBridge = {
         this.board = Chessboard(boardId, {
             draggable: true,
             position: 'start',
+            orientation: 'white',
             pieceTheme: '/img/chesspieces/wikipedia/{piece}.png',
             onDragStart: onDragStart,
             onDrop: onDrop,
             onSnapEnd: onSnapEnd
         });
 
+        if (this.boardElement) {
+            this.squareClickHandler = (event) => this.handleBoardClick(event);
+            this.boardElement.addEventListener('click', this.squareClickHandler);
+
+            if (window.ResizeObserver) {
+                this.resizeObserver = new ResizeObserver(() => this.syncBoardSize());
+                this.resizeObserver.observe(this.boardElement);
+            }
+        }
+
         this.resizeHandler = () => this.syncBoardSize();
         window.addEventListener('resize', this.resizeHandler);
+
         this.syncBoardSize();
-        this.notifyState('Выберите сложность и нажмите "Начать игру".');
+        this.notifyState('Выберите сложность, сторону и нажмите "Играть".');
     },
 
-    startNewGame: function (difficulty) {
+    startNewGame: function (difficulty, requestedSide) {
         this.difficulty = this.normalizeDifficulty(difficulty);
         this.aiThinking = false;
         this.gameStarted = true;
+        this.gameFinishedByResignation = false;
+        this.botRequestId++;
+        this.playerColor = this.resolvePlayerColor(requestedSide);
+        this.clearSelection();
 
         if (!this.game) {
             this.game = new Chess();
@@ -83,18 +98,80 @@ window.chessBridge = {
             this.game.reset();
         }
 
+        if (this.board && typeof this.board.orientation === 'function') {
+            this.board.orientation(this.playerColor);
+        }
+
         this.syncBoard(true);
-        this.notifyState();
+        this.notifyState(this.playerColor === 'black'
+            ? 'ИИ делает первый ход.'
+            : 'Ваш ход.');
+
+        if (this.playerColor === 'black') {
+            this.queueAiMove(300);
+        }
+    },
+
+    prepareForNewGame: function () {
+        this.gameStarted = false;
+        this.aiThinking = false;
+        this.gameFinishedByResignation = false;
+        this.botRequestId++;
+        this.playerColor = 'white';
+        this.clearSelection();
+
+        if (!this.game) {
+            this.game = new Chess();
+        } else {
+            this.game.reset();
+        }
+
+        if (this.board && typeof this.board.orientation === 'function') {
+            this.board.orientation('white');
+        }
+
+        this.syncBoard(true);
+        this.notifyState('Выберите сложность, сторону и нажмите "Играть".');
+    },
+
+    resignGame: function () {
+        if (!this.gameStarted || this.isGameOver()) {
+            return;
+        }
+
+        this.aiThinking = false;
+        this.gameFinishedByResignation = true;
+        this.botRequestId++;
+        this.clearSelection();
+        this.notifyState('Вы сдались. Победа засчитана ИИ.');
+    },
+
+    queueAiMove: function (delay) {
+        if (!this.gameStarted || !this.game || this.isGameOver()) {
+            return;
+        }
+
+        this.aiThinking = true;
+        this.clearSelection();
+        this.notifyState('Ход ИИ.');
+        window.setTimeout(() => this.askBot(), delay ?? 250);
     },
 
     askBot: function () {
-        if (!this.gameStarted || !this.game || this.game.game_over()) {
+        if (!this.gameStarted || !this.game || this.isGameOver()) {
+            this.aiThinking = false;
+            this.notifyState();
+            return;
+        }
+
+        if (this.game.turn() !== this.getAiColorCode()) {
             this.aiThinking = false;
             this.notifyState();
             return;
         }
 
         const requestedHistoryLength = this.game.history().length;
+        const requestId = ++this.botRequestId;
 
         if (this.engine) {
             this.engine.onmessage = (event) => {
@@ -106,7 +183,7 @@ window.chessBridge = {
 
                 const bestMove = line.split(' ')[1];
 
-                if (!this.isLatestBotRequest(requestedHistoryLength)) {
+                if (!this.isLatestBotRequest(requestedHistoryLength, requestId)) {
                     return;
                 }
 
@@ -128,10 +205,14 @@ window.chessBridge = {
             }
         }
 
-        this.applySimpleBotMove(requestedHistoryLength);
+        this.applySimpleBotMove(requestedHistoryLength, requestId);
     },
 
     applyEngineMove: function (bestMove) {
+        if (!this.gameStarted || this.isGameOver()) {
+            return;
+        }
+
         const appliedMove = this.game.move({
             from: bestMove.substring(0, 2),
             to: bestMove.substring(2, 4),
@@ -145,11 +226,12 @@ window.chessBridge = {
             return;
         }
 
+        this.clearSelection();
         this.syncBoard();
         this.notifyState();
     },
 
-    applySimpleBotMove: function (requestedHistoryLength) {
+    applySimpleBotMove: function (requestedHistoryLength, requestId) {
         const possibleMoves = this.game.moves({ verbose: true });
         const botMove = window.simpleBot
             ? window.simpleBot.generateMove(this.game, possibleMoves, this.difficulty)
@@ -162,7 +244,7 @@ window.chessBridge = {
         }
 
         window.setTimeout(() => {
-            if (!this.isLatestBotRequest(requestedHistoryLength)) {
+            if (!this.isLatestBotRequest(requestedHistoryLength, requestId)) {
                 return;
             }
 
@@ -173,9 +255,169 @@ window.chessBridge = {
             });
 
             this.aiThinking = false;
+            this.clearSelection();
             this.syncBoard();
             this.notifyState();
         }, 200);
+    },
+
+    tryPlayerMove: function (source, target) {
+        const legalMoves = this.game.moves({ verbose: true });
+        const isPromotion = legalMoves.some(m => m.from === source && m.to === target && m.promotion);
+
+        if (isPromotion) {
+            if (this.dotNetHelper) {
+                this.dotNetHelper.invokeMethodAsync('PromptForPromotion', source, target);
+                return true;
+            }
+        }
+
+        return this.executePlayerMove(source, target, 'q');
+    },
+
+    executePlayerMove: function (source, target, promotion) {
+        const move = this.game.move({
+            from: source,
+            to: target,
+            promotion: promotion
+        });
+
+        if (move === null) {
+            const piece = this.game.get(target);
+
+            if (piece && piece.color === this.getPlayerColorCode()) {
+                this.selectSquare(target);
+            } else {
+                this.clearSelection();
+            }
+
+            return false;
+        }
+
+        this.clearSelection();
+        this.syncBoard();
+        this.notifyState();
+
+        if (!this.isGameOver()) {
+            this.queueAiMove();
+        }
+
+        return true;
+    },
+
+    completePromotion: function (source, target, piece) {
+        if (!piece || !this.executePlayerMove(source, target, piece)) {
+            this.syncBoard();
+            this.clearSelection();
+        }
+    },
+
+    handleBoardClick: function (event) {
+        if (!this.boardElement) {
+            return;
+        }
+
+        const squareElement = event.target.closest('[data-square]');
+
+        if (!squareElement || !this.boardElement.contains(squareElement)) {
+            return;
+        }
+
+        const square = squareElement.getAttribute('data-square');
+
+        if (!square) {
+            return;
+        }
+
+        if (!this.canPlayerMove()) {
+            this.clearSelection();
+            return;
+        }
+
+        if (this.selectedSquare === square) {
+            this.clearSelection();
+            return;
+        }
+
+        if (this.selectedSquare) {
+            if (this.tryPlayerMove(this.selectedSquare, square)) {
+                return;
+            }
+        }
+
+        const piece = this.game.get(square);
+
+        if (piece && piece.color === this.getPlayerColorCode()) {
+            this.selectSquare(square);
+            return;
+        }
+
+        this.clearSelection();
+    },
+
+    selectSquare: function (square) {
+        if (!this.game || !this.canPlayerMove()) {
+            this.clearSelection();
+            return;
+        }
+
+        const legalMoves = this.game.moves({
+            square: square,
+            verbose: true
+        });
+
+        if (!legalMoves || legalMoves.length === 0) {
+            this.clearSelection();
+            return;
+        }
+
+        this.selectedSquare = square;
+        this.highlightedSquares = legalMoves.map(move => move.to);
+        this.renderHighlights();
+    },
+
+    clearSelection: function () {
+        this.selectedSquare = null;
+        this.highlightedSquares = [];
+        this.renderHighlights();
+    },
+
+    renderHighlights: function () {
+        if (!this.boardElement) {
+            return;
+        }
+
+        const highlightedClassNames = [
+            'play-ai-square-selected',
+            'play-ai-square-target',
+            'play-ai-square-occupied'
+        ];
+
+        this.boardElement
+            .querySelectorAll('.square-55d63')
+            .forEach(squareElement => squareElement.classList.remove(...highlightedClassNames));
+
+        if (this.selectedSquare) {
+            const selectedElement = this.boardElement.querySelector('[data-square="' + this.selectedSquare + '"]');
+
+            if (selectedElement) {
+                selectedElement.classList.add('play-ai-square-selected');
+            }
+        }
+
+        this.highlightedSquares.forEach(square => {
+            const squareElement = this.boardElement.querySelector('[data-square="' + square + '"]');
+
+            if (!squareElement) {
+                return;
+            }
+
+            squareElement.classList.add('play-ai-square-target');
+
+            if (this.game && this.game.get(square)) {
+                squareElement.classList.add('play-ai-square-occupied');
+            }
+        });
     },
 
     notifyState: function (customStatus) {
@@ -189,19 +431,25 @@ window.chessBridge = {
             customStatus || this.getStatusText(),
             this.game.history(),
             this.gameStarted,
-            this.game.game_over(),
+            this.isGameOver(),
             this.getResultCode(),
-            this.getPgn()
+            this.getPgn(),
+            this.playerColor
         );
     },
 
     getResultCode: function () {
-        if (!this.gameStarted || !this.game || !this.game.game_over()) {
+        if (!this.gameStarted || !this.game || !this.isGameOver()) {
             return 'none';
         }
 
+        if (this.gameFinishedByResignation) {
+            return 'loss';
+        }
+
         if (this.game.in_checkmate()) {
-            return this.game.turn() === 'w' ? 'loss' : 'win';
+            const winnerColor = this.game.turn() === 'w' ? 'black' : 'white';
+            return winnerColor === this.playerColor ? 'win' : 'loss';
         }
 
         if (this.game.in_stalemate() || this.game.in_draw()) {
@@ -226,8 +474,12 @@ window.chessBridge = {
 
         const result = this.getPgnResult();
 
-        if (result === '*' || !pgn) {
+        if (result === '*') {
             return pgn;
+        }
+
+        if (!pgn) {
+            return result;
         }
 
         return /\s(1-0|0-1|1\/2-1\/2|\*)$/.test(pgn.trim())
@@ -236,27 +488,39 @@ window.chessBridge = {
     },
 
     getPgnResult: function () {
-        switch (this.getResultCode()) {
-            case 'win':
-                return '1-0';
-            case 'loss':
-                return '0-1';
-            case 'draw':
-                return '1/2-1/2';
-            default:
-                return '*';
+        if (!this.gameStarted || !this.game || !this.isGameOver()) {
+            return '*';
         }
+
+        if (this.gameFinishedByResignation) {
+            return this.playerColor === 'white' ? '0-1' : '1-0';
+        }
+
+        if (this.game.in_checkmate()) {
+            return this.game.turn() === 'w' ? '0-1' : '1-0';
+        }
+
+        if (this.game.in_stalemate() || this.game.in_draw()) {
+            return '1/2-1/2';
+        }
+
+        return '*';
     },
 
     getStatusText: function () {
         if (!this.gameStarted) {
-            return 'Выберите сложность и нажмите "Начать игру".';
+            return 'Выберите сложность, сторону и нажмите "Играть".';
+        }
+
+        if (this.gameFinishedByResignation) {
+            return 'Вы сдались. Победа засчитана ИИ.';
         }
 
         if (this.game.in_checkmate()) {
-            return this.game.turn() === 'w'
-                ? 'Мат. Победил ИИ.'
-                : 'Мат. Победа за вами.';
+            const winnerColor = this.game.turn() === 'w' ? 'black' : 'white';
+            return winnerColor === this.playerColor
+                ? 'Мат. Победа за вами.'
+                : 'Мат. Победил ИИ.';
         }
 
         if (this.game.in_stalemate()) {
@@ -267,15 +531,51 @@ window.chessBridge = {
             return 'Ничья. Больше допустимых продолжений нет.';
         }
 
-        let status = this.game.turn() === 'w'
-            ? 'Ваш ход белыми.'
-            : 'Ход ИИ за чёрных.';
+        const playerTurn = this.game.turn() === this.getPlayerColorCode();
+        let status = playerTurn ? 'Ваш ход.' : 'Ход ИИ.';
 
         if (this.game.in_check()) {
             status += ' Шах.';
         }
 
         return status;
+    },
+
+    canPlayerMove: function () {
+        return this.gameStarted
+            && !this.aiThinking
+            && this.game
+            && !this.isGameOver()
+            && this.game.turn() === this.getPlayerColorCode();
+    },
+
+    isGameOver: function () {
+        return this.gameFinishedByResignation
+            || (this.game && this.game.game_over());
+    },
+
+    getPlayerColorCode: function () {
+        return this.playerColor === 'black' ? 'b' : 'w';
+    },
+
+    getAiColorCode: function () {
+        return this.playerColor === 'black' ? 'w' : 'b';
+    },
+
+    resolvePlayerColor: function (requestedSide) {
+        const normalized = typeof requestedSide === 'string'
+            ? requestedSide.toLowerCase()
+            : 'white';
+
+        if (normalized === 'black') {
+            return 'black';
+        }
+
+        if (normalized === 'random') {
+            return Math.random() < 0.5 ? 'white' : 'black';
+        }
+
+        return 'white';
     },
 
     syncBoard: function (resetToStart) {
@@ -288,11 +588,16 @@ window.chessBridge = {
         } else {
             this.board.position(this.game.fen(), false);
         }
+
+        this.renderHighlights();
     },
 
     syncBoardSize: function () {
         if (this.board && typeof this.board.resize === 'function') {
-            this.board.resize();
+            window.requestAnimationFrame(() => {
+                this.board.resize();
+                this.renderHighlights();
+            });
         }
     },
 
@@ -311,10 +616,12 @@ window.chessBridge = {
         }
     },
 
-    isLatestBotRequest: function (requestedHistoryLength) {
+    isLatestBotRequest: function (requestedHistoryLength, requestId) {
         return this.gameStarted
             && this.game
             && this.aiThinking
+            && !this.isGameOver()
+            && this.botRequestId === requestId
             && this.game.history().length === requestedHistoryLength;
     },
 
@@ -361,10 +668,29 @@ window.chessBridge = {
         }
     },
 
+    scrollElementToBottom: function (element) {
+        if (!element) {
+            return;
+        }
+
+        window.requestAnimationFrame(() => {
+            element.scrollTop = element.scrollHeight;
+        });
+    },
+
     destroy: function () {
         if (this.resizeHandler) {
             window.removeEventListener('resize', this.resizeHandler);
             this.resizeHandler = null;
+        }
+
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+            this.resizeObserver = null;
+        }
+
+        if (this.boardElement && this.squareClickHandler) {
+            this.boardElement.removeEventListener('click', this.squareClickHandler);
         }
 
         if (this.engine) {
@@ -387,7 +713,14 @@ window.chessBridge = {
         this.board = null;
         this.game = null;
         this.dotNetHelper = null;
+        this.boardElement = null;
+        this.squareClickHandler = null;
         this.gameStarted = false;
         this.aiThinking = false;
+        this.playerColor = 'white';
+        this.gameFinishedByResignation = false;
+        this.botRequestId++;
+        this.selectedSquare = null;
+        this.highlightedSquares = [];
     }
 };

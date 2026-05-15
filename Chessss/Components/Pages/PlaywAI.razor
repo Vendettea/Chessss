@@ -1,9 +1,13 @@
 @page "/playwithai"
 @rendermode InteractiveServer
 @using System.Security.Claims
+@using Chessss.Models
+@using Chessss.Services
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
 @inject IJSRuntime JS
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
 @inject Chessss.Services.UserDifficultyService UserDifficultyService
 @inject Chessss.Services.GameResultService GameResults
 @inject ISnackbar Snackbar
@@ -11,234 +15,598 @@
 
 <PageTitle>UltraChess - Игра с ИИ</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 play-ai-page">
-    <MudGrid Spacing="3">
-        <MudItem xs="12" lg="7">
-            <MudPaper Elevation="4" Class="play-ai-board-shell pa-4">
-                <MudStack Spacing="3">
-                    <div>
-                        <MudText Typo="Typo.h4">Игра с ИИ</MudText>
-                        <MudText Typo="Typo.body2" Class="play-ai-subtitle">
-                            Вы играете белыми. Сначала выберите сложность, затем начните партию.
-                        </MudText>
+<div class="play-ai-page">
+    <div class="play-ai-stage">
+        <div class="play-ai-layout">
+            <section class="play-ai-board-area" aria-label="Шахматная доска">
+                <div class="play-ai-board-column">
+                    <div class="play-ai-player-strip play-ai-player-strip-top">
+                        <MudAvatar Color="Color.Default" Variant="Variant.Outlined" Size="Size.Medium" Class="play-ai-avatar">
+                            <MudIcon Icon="@Icons.Material.Filled.SmartToy" Size="Size.Medium" />
+                        </MudAvatar>
+
+                        <div class="play-ai-player-copy">
+                            <div class="play-ai-player-name">Бот</div>
+                            <div class="play-ai-player-subtitle">Уровень @GetDisplayedDifficulty()</div>
+                        </div>
                     </div>
 
-                    <div class="play-ai-board-frame">
+                    <div class="play-ai-board-shell" style="position: relative;">
                         <div id="chessBoard" class="play-ai-board"></div>
+
+                        @if (_showPromotionDialog)
+                        {
+                            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.6); z-index: 100; border-radius: 22px; backdrop-filter: blur(2px);">
+                                <div style="background: var(--mud-palette-surface); padding: 1.5rem; border-radius: 16px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); text-align: center; border: 1px solid var(--play-ai-border);">
+                                    <h3 style="margin-top: 0; margin-bottom: 1rem; font-weight: 600; font-size: 1.2rem;">Выберите фигуру</h3>
+                                    @{ var colorPrefix = _playerColor == "black" ? "b" : "w"; }
+                                    <div style="display: flex; gap: 12px; justify-content: center;">
+                                        <div class="promotion-piece" @onclick='() => OnPromotionPieceSelected("q")'>
+                                            <img src="/img/chesspieces/wikipedia/@(colorPrefix)Q.png" alt="Ферзь" title="Ферзь" />
+                                        </div>
+                                        <div class="promotion-piece" @onclick='() => OnPromotionPieceSelected("r")'>
+                                            <img src="/img/chesspieces/wikipedia/@(colorPrefix)R.png" alt="Ладья" title="Ладья" />
+                                        </div>
+                                        <div class="promotion-piece" @onclick='() => OnPromotionPieceSelected("b")'>
+                                            <img src="/img/chesspieces/wikipedia/@(colorPrefix)B.png" alt="Слон" title="Слон" />
+                                        </div>
+                                        <div class="promotion-piece" @onclick='() => OnPromotionPieceSelected("n")'>
+                                            <img src="/img/chesspieces/wikipedia/@(colorPrefix)N.png" alt="Конь" title="Конь" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
                     </div>
-                </MudStack>
-            </MudPaper>
-        </MudItem>
 
-        <MudItem xs="12" lg="5">
-            <MudStack Spacing="3">
-                <MudCard Elevation="4" Class="play-ai-panel">
-                    <MudCardHeader>
-                        <CardHeaderContent>
-                            <MudText Typo="Typo.h5">Панель партии</MudText>
-                            <MudText Typo="Typo.body2">Противник: ИИ за чёрных</MudText>
-                        </CardHeaderContent>
-                    </MudCardHeader>
+                    <div class="play-ai-board-footer">
+                        <div class="play-ai-player-strip play-ai-player-strip-bottom">
+                            <MudAvatar Color="Color.Default" Variant="Variant.Outlined" Size="Size.Medium" Class="play-ai-avatar">
+                                <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Medium" />
+                            </MudAvatar>
 
-                    <MudCardContent>
-                        <MudStack Spacing="3">
-                            <MudSelect T="int"
-                                       Label="Уровень сложности"
-                                       Variant="Variant.Outlined"
-                                       Dense="true"
-                                       @bind-Value="_selectedDifficulty">
-                                @foreach (var level in DifficultyLevels)
-                                {
-                                    <MudSelectItem T="int" Value="@level">Уровень @level</MudSelectItem>
-                                }
-                            </MudSelect>
+                            <div class="play-ai-player-copy">
+                                <div class="play-ai-player-name">@_currentUserDisplayName</div>
+                                <div class="play-ai-player-subtitle">Игрок</div>
+                            </div>
+                        </div>
 
-                            <MudPaper Class="play-ai-difficulty px-3 py-2" Outlined="true">
-                                <MudText Typo="Typo.subtitle2">@GetDifficultyLabel(_selectedDifficulty)</MudText>
-                                <MudText Typo="Typo.body2">@GetDifficultyDescription(_selectedDifficulty)</MudText>
-                                @if (_gameStarted && _selectedDifficulty != _activeDifficulty)
-                                {
-                                    <MudText Typo="Typo.caption" Class="d-block mt-1">
-                                        Новый уровень применится после кнопки "Заново".
-                                    </MudText>
-                                }
-                            </MudPaper>
+                        <div class="play-ai-timer" aria-live="polite">
+                            <span class="play-ai-timer-label">Время</span>
+                            <span class="play-ai-timer-value">@_elapsedTimeText</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-                            <MudAlert Severity="@_statusSeverity" Variant="Variant.Filled" NoIcon="true">
-                                @_statusText
-                            </MudAlert>
+            <aside class="play-ai-side-panel" aria-label="Панель партии">
+                @if (IsSetupState)
+                {
+                    <div class="play-ai-panel-content play-ai-start-panel">
+                        <div class="play-ai-panel-head">
+                            <MudText Typo="Typo.h5">Новая партия</MudText>
+                            <MudText Typo="Typo.body2" Class="play-ai-muted">
+                                Выберите силу бота и сторону, затем начните игру.
+                            </MudText>
+                        </div>
 
-                            @if (!string.IsNullOrWhiteSpace(_resultSaveText))
+                        <MudSelect T="int"
+                                   Label="Сложность"
+                                   Variant="Variant.Outlined"
+                                   Dense="true"
+                                   @bind-Value="_selectedDifficulty">
+                            @foreach (var level in DifficultyLevels)
                             {
-                                <MudAlert Severity="@_resultSaveSeverity" Variant="Variant.Outlined">
-                                    @_resultSaveText
-                                </MudAlert>
+                                <MudSelectItem T="int" Value="@level">Уровень @level</MudSelectItem>
                             }
+                        </MudSelect>
 
-                            <MudPaper Class="px-3 py-2" Outlined="true">
-                                <MudText Typo="Typo.caption" Class="d-block">Текущая сложность партии</MudText>
-                                <MudText Typo="Typo.body1">Уровень @_activeDifficulty</MudText>
-                            </MudPaper>
-                        </MudStack>
-                    </MudCardContent>
+                        <div class="play-ai-difficulty-card">
+                            <MudText Typo="Typo.subtitle2">@GetDifficultyLabel(_selectedDifficulty)</MudText>
+                            <MudText Typo="Typo.body2">@GetDifficultyDescription(_selectedDifficulty)</MudText>
+                        </div>
 
-                    <MudCardActions>
+                        <div class="play-ai-control-group">
+                            <MudText Typo="Typo.subtitle2">Сторона</MudText>
+
+                            <div class="play-ai-segmented" role="radiogroup" aria-label="Выбор стороны">
+                                <button type="button"
+                                        class="@GetSideButtonClass(SideChoice.White)"
+                                        aria-checked="@(_selectedSide == SideChoice.White)"
+                                        role="radio"
+                                        @onclick="@(() => SelectSide(SideChoice.White))">
+                                    Белые
+                                </button>
+                                <button type="button"
+                                        class="@GetSideButtonClass(SideChoice.Random)"
+                                        aria-checked="@(_selectedSide == SideChoice.Random)"
+                                        role="radio"
+                                        @onclick="@(() => SelectSide(SideChoice.Random))">
+                                    Случайно
+                                </button>
+                                <button type="button"
+                                        class="@GetSideButtonClass(SideChoice.Black)"
+                                        aria-checked="@(_selectedSide == SideChoice.Black)"
+                                        role="radio"
+                                        @onclick="@(() => SelectSide(SideChoice.Black))">
+                                    Чёрные
+                                </button>
+                            </div>
+
+                            <MudText Typo="Typo.caption" Class="play-ai-muted">
+                                @GetSelectedSideHint()
+                            </MudText>
+                        </div>
+
                         <MudButton Variant="Variant.Filled"
                                    Color="Color.Success"
                                    FullWidth="true"
+                                   Size="Size.Large"
                                    Disabled="@(!_boardReady)"
-                                   OnClick="StartOrRestartGame">
-                            @(_gameStarted ? "Заново" : "Начать игру")
+                                   StartIcon="@Icons.Material.Filled.PlayArrow"
+                                   OnClick="StartGameAsync">
+                            Играть
                         </MudButton>
-                    </MudCardActions>
-                </MudCard>
+                    </div>
+                }
+                else
+                {
+                    <div class="play-ai-panel-content play-ai-game-panel">
+                        <div class="play-ai-status-block">
+                            <MudAlert Severity="@_statusSeverity" Variant="Variant.Filled" NoIcon="true" Class="play-ai-status-alert">
+                                <div class="play-ai-status-title">@_statusText</div>
+                            </MudAlert>
+                        </div>
 
-                <MudCard Elevation="4" Class="play-ai-panel">
-                    <MudCardHeader>
-                        <CardHeaderContent>
-                            <MudText Typo="Typo.h5">PGN партии</MudText>
-                            <MudText Typo="Typo.body2">Полная последовательность ходов для анализа</MudText>
-                        </CardHeaderContent>
-                    </MudCardHeader>
+                        <section class="play-ai-section play-ai-history-section">
+                            <div class="play-ai-section-head">
+                                <MudText Typo="Typo.subtitle1">Ходы партии</MudText>
+                                <MudText Typo="Typo.caption" Class="play-ai-muted">@GetMoveCountText()</MudText>
+                            </div>
 
-                    <MudCardContent>
-                        <textarea class="play-ai-pgn" readonly>@GetPgnDisplayText()</textarea>
-                        <MudText Typo="Typo.caption" Class="d-block mt-2 play-ai-fen">FEN: @_currentFen</MudText>
-                    </MudCardContent>
+                            @if (_moveRows.Count == 0)
+                            {
+                                <div class="play-ai-empty-history">Ходы появятся после первого сделанного хода.</div>
+                            }
+                            else
+                            {
+                                <div class="play-ai-move-table" @ref="_moveListViewport">
+                                    <div class="play-ai-move-row play-ai-move-header">
+                                        <span>#</span>
+                                        <span>Белые</span>
+                                        <span>Чёрные</span>
+                                    </div>
 
-                    <MudCardActions>
-                        <MudButton Variant="Variant.Outlined"
-                                   Color="Color.Success"
-                                   FullWidth="true"
-                                   Disabled="@(string.IsNullOrWhiteSpace(_currentPgn))"
-                                   StartIcon="@Icons.Material.Filled.ContentCopy"
-                                   OnClick="CopyPgnAsync">
-                            Скопировать PGN
-                        </MudButton>
-                    </MudCardActions>
-                </MudCard>
+                                    @foreach (var move in _moveRows)
+                                    {
+                                        <div class="@GetMoveRowClass(move)">
+                                            <span>@move.Number.</span>
+                                            <span>@move.White</span>
+                                            <span>@move.Black</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </section>
 
-                <MudCard Elevation="4" Class="play-ai-panel">
-                    <MudCardHeader>
-                        <CardHeaderContent>
-                            <MudText Typo="Typo.h5">Ходы партии</MudText>
-                            <MudText Typo="Typo.body2">История выводится справа в отдельном контейнере</MudText>
-                        </CardHeaderContent>
-                    </MudCardHeader>
-
-                    <MudCardContent Class="play-ai-history-content">
-                        @if (_moveRows.Count == 0)
+                        @if (IsFinishedState)
                         {
-                            <MudText Typo="Typo.body2" Class="play-ai-empty-history">
-                                Ходы появятся здесь после начала партии.
-                            </MudText>
-                        }
-                        else
-                        {
-                            <div class="play-ai-move-table">
-                                <div class="play-ai-move-row play-ai-move-header">
-                                    <span>#</span>
-                                    <span>Белые</span>
-                                    <span>Чёрные</span>
+                            <section class="play-ai-section play-ai-pgn-section">
+                                <div class="play-ai-section-head">
+                                    <MudText Typo="Typo.subtitle1">PGN</MudText>
+
+                                    <MudTooltip Text="Скопировать PGN">
+                                        <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
+                                                       Size="Size.Small"
+                                                       Color="Color.Primary"
+                                                       Disabled="@(string.IsNullOrWhiteSpace(_currentPgn))"
+                                                       OnClick="CopyPgnAsync" />
+                                    </MudTooltip>
                                 </div>
 
-                                @foreach (var move in _moveRows)
-                                {
-                                    <div class="play-ai-move-row">
-                                        <span>@move.Number.</span>
-                                        <span>@move.White</span>
-                                        <span>@move.Black</span>
-                                    </div>
-                                }
-                            </div>
+                                <textarea class="play-ai-pgn" readonly>@GetPgnDisplayText()</textarea>
+                            </section>
                         }
-                    </MudCardContent>
-                </MudCard>
-            </MudStack>
-        </MudItem>
-    </MudGrid>
-</MudContainer>
+
+                        <div class="play-ai-actions">
+                            <MudTooltip Text="Заново">
+                                <MudIconButton Icon="@Icons.Material.Filled.Refresh"
+                                               Color="Color.Primary"
+                                               Size="Size.Large"
+                                               OnClick="ResetToSetupAsync" />
+                            </MudTooltip>
+
+                            <MudTooltip Text="Сдаться">
+                                <MudIconButton Icon="@Icons.Material.Filled.Flag"
+                                               Color="Color.Error"
+                                               Size="Size.Large"
+                                               Disabled="@_gameOver"
+                                               OnClick="ConfirmResignAsync" />
+                            </MudTooltip>
+                        </div>
+                    </div>
+                }
+            </aside>
+        </div>
+    </div>
+</div>
 
 <style>
-    .play-ai-page {
-        padding-bottom: 2rem;
-    }
-
-    .play-ai-board-shell,
-    .play-ai-panel {
-        border-radius: 20px;
-    }
-
-    .play-ai-board-shell {
-        background: linear-gradient(160deg, rgba(34, 40, 49, 0.96), rgba(24, 28, 34, 0.96));
-    }
-
-    .play-ai-subtitle {
-        opacity: 0.85;
-    }
-
-    .play-ai-board-frame {
-        width: 100%;
+    .promotion-piece {
+        width: 64px;
+        height: 64px;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: background-color 0.2s, transform 0.1s;
         display: flex;
-        justify-content: center;
         align-items: center;
-        padding: 0.5rem;
+        justify-content: center;
+    }
+    
+    .promotion-piece:hover {
+        background-color: var(--play-ai-soft-strong);
+        transform: scale(1.05);
+    }
+    
+    .promotion-piece img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+
+    .play-ai-page {
+        --play-ai-border: rgba(255, 255, 255, 0.08);
+        --play-ai-soft: rgba(255, 255, 255, 0.05);
+        --play-ai-soft-strong: rgba(255, 255, 255, 0.08);
+        --play-ai-muted-color: rgba(255, 255, 255, 0.68);
+        --play-ai-selected-square: rgba(244, 211, 94, 0.38);
+        --play-ai-move-dot: rgba(255, 255, 255, 0.42);
+        --play-ai-panel-height: clamp(560px, calc(100dvh - 122px), 780px);
+        padding: 0.85rem 1rem 1.5rem;
+    }
+
+    .play-ai-stage {
+        max-width: 1160px;
+        margin: 0 auto;
+    }
+
+    .play-ai-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) clamp(300px, 28vw, 344px);
+        justify-content: center;
+        gap: clamp(0.85rem, 1.5vw, 1.15rem);
+        align-items: start;
+        min-width: 0;
+    }
+
+    .play-ai-board-area {
+        min-width: 0;
+    }
+
+    .play-ai-board-column {
+        width: min(100%, 760px);
+        margin: 0 auto;
+    }
+
+    .play-ai-player-strip,
+    .play-ai-board-shell,
+    .play-ai-board-footer,
+    .play-ai-side-panel {
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)),
+            color-mix(in srgb, var(--mud-palette-surface) 88%, black);
+        border: 1px solid var(--play-ai-border);
+        box-shadow: 0 18px 36px rgba(0, 0, 0, 0.22);
+    }
+
+    .play-ai-player-strip {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        padding: 0.85rem 1rem;
         border-radius: 18px;
+    }
+
+    .play-ai-player-strip-top {
+        margin-bottom: 0.85rem;
+    }
+
+    .play-ai-avatar {
+        flex-shrink: 0;
         background: rgba(255, 255, 255, 0.04);
     }
 
+    .play-ai-player-copy {
+        min-width: 0;
+    }
+
+    .play-ai-player-name {
+        font-size: 1rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+
+    .play-ai-player-subtitle {
+        margin-top: 0.15rem;
+        font-size: 0.88rem;
+        color: var(--play-ai-muted-color);
+    }
+
+    .play-ai-board-shell {
+        padding: 0.75rem;
+        border-radius: 22px;
+    }
+
     .play-ai-board {
-        width: min(100%, 620px);
-    }
-
-    .play-ai-difficulty {
-        border-radius: 14px;
-    }
-
-    .play-ai-history-content {
-        max-height: 520px;
-        overflow: auto;
-    }
-
-    .play-ai-empty-history {
-        opacity: 0.75;
-    }
-
-    .play-ai-pgn {
         width: 100%;
-        min-height: 150px;
-        resize: vertical;
-        padding: 0.85rem;
-        border: 1px solid rgba(128, 128, 128, 0.32);
-        border-radius: 8px;
-        background: rgba(127, 127, 127, 0.08);
+        max-width: 760px;
+        margin: 0 auto;
+    }
+
+    .play-ai-board .board-b72b1 {
+        border: 1px solid rgba(0, 0, 0, 0.35);
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.28);
+    }
+
+    .play-ai-board .square-55d63 {
+        position: relative;
+        cursor: pointer;
+    }
+
+    .play-ai-board .square-55d63.play-ai-square-selected {
+        box-shadow: inset 0 0 0 999px var(--play-ai-selected-square);
+    }
+
+    .play-ai-board .square-55d63.play-ai-square-target::after {
+        content: "";
+        position: absolute;
+        inset: auto;
+        top: 50%;
+        left: 50%;
+        width: 26%;
+        height: 26%;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        background: var(--play-ai-move-dot);
+        pointer-events: none;
+    }
+
+    .play-ai-board .square-55d63.play-ai-square-target.play-ai-square-occupied::after {
+        width: 72%;
+        height: 72%;
+        background: transparent;
+        border: 5px solid var(--play-ai-move-dot);
+    }
+
+    .play-ai-board-footer {
+        margin-top: 0.85rem;
+        padding: 0.85rem 1rem;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+
+    .play-ai-player-strip-bottom {
+        margin: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+        min-width: 0;
+    }
+
+    .play-ai-timer {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.15rem;
+        min-width: 84px;
+        padding: 0.55rem 0.75rem;
+        border-radius: 14px;
+        background: var(--play-ai-soft);
+    }
+
+    .play-ai-timer-label {
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--play-ai-muted-color);
+    }
+
+    .play-ai-timer-value {
+        font-size: 1.12rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .play-ai-side-panel {
+        display: flex;
+        min-width: 0;
+        border-radius: 22px;
+        overflow: hidden;
+        min-height: 0;
+        height: var(--play-ai-panel-height);
+        max-height: var(--play-ai-panel-height);
+        position: sticky;
+        top: 0.85rem;
+    }
+
+    .play-ai-panel-content {
+        flex: 1 1 auto;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        max-height: 100%;
+        padding: 1.1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        overflow: hidden;
+    }
+
+    .play-ai-panel-head {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+
+    .play-ai-start-panel {
+        justify-content: center;
+        overflow-y: auto;
+    }
+
+    .play-ai-muted {
+        color: var(--play-ai-muted-color);
+    }
+
+    .play-ai-difficulty-card {
+        padding: 0.9rem 1rem;
+        border: 1px solid var(--play-ai-border);
+        border-radius: 16px;
+        background: var(--play-ai-soft);
+    }
+
+    .play-ai-control-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+    }
+
+    .play-ai-segmented {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.4rem;
+        padding: 0.35rem;
+        border-radius: 16px;
+        border: 1px solid var(--play-ai-border);
+        background: var(--play-ai-soft);
+    }
+
+    .play-ai-side-option {
+        min-height: 46px;
+        border: 0;
+        border-radius: 12px;
+        background: transparent;
         color: inherit;
-        font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-        font-size: 0.92rem;
-        line-height: 1.45;
-        white-space: pre-wrap;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
     }
 
-    .play-ai-fen {
-        opacity: 0.72;
-        overflow-wrap: anywhere;
+    .play-ai-side-option:hover {
+        background: rgba(255, 255, 255, 0.08);
     }
 
-    .play-ai-move-table {
+    .play-ai-side-option.is-selected {
+        color: var(--mud-palette-success-text);
+        background: var(--mud-palette-success);
+        box-shadow: 0 10px 22px rgba(46, 125, 50, 0.3);
+    }
+
+    .play-ai-game-panel {
+        overflow: hidden;
+        min-height: 0;
+    }
+
+    .play-ai-status-block {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .play-ai-status-alert {
+        border-radius: 16px;
+    }
+
+    .play-ai-status-title {
+        font-weight: 700;
+        line-height: 1.35;
+    }
+
+    .play-ai-status-meta {
+        margin-top: 0.3rem;
+        font-size: 0.9rem;
+        opacity: 0.88;
+    }
+
+    .play-ai-game-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+    }
+
+    .play-ai-game-meta span {
+        padding: 0.35rem 0.7rem;
+        border-radius: 999px;
+        background: var(--play-ai-soft);
+        border: 1px solid var(--play-ai-border);
+        font-size: 0.84rem;
+    }
+
+    .play-ai-section {
+        min-height: 0;
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
     }
 
+    .play-ai-history-section {
+        flex: 1 1 0;
+        overflow: hidden;
+        min-height: 0;
+    }
+
+    .play-ai-section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        min-height: 32px;
+    }
+
+    .play-ai-empty-history {
+        padding: 1rem;
+        border-radius: 16px;
+        border: 1px dashed rgba(255, 255, 255, 0.18);
+        color: var(--play-ai-muted-color);
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .play-ai-move-table {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        padding-right: 0.2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        min-height: 0;
+        max-height: 100%;
+        overscroll-behavior: contain;
+    }
+
     .play-ai-move-row {
         display: grid;
-        grid-template-columns: 52px 1fr 1fr;
-        gap: 0.75rem;
+        grid-template-columns: 46px minmax(0, 1fr) minmax(0, 1fr);
+        gap: 0.6rem;
         align-items: center;
-        padding: 0.7rem 0.85rem;
+        min-height: 40px;
+        padding: 0.55rem 0.7rem;
         border-radius: 14px;
-        background: rgba(127, 127, 127, 0.08);
+        background: var(--play-ai-soft);
+        border: 1px solid transparent;
         font-variant-numeric: tabular-nums;
+    }
+
+    .play-ai-move-row span {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .play-ai-move-header {
@@ -246,13 +614,112 @@
         top: 0;
         z-index: 1;
         font-weight: 700;
-        background: rgba(76, 175, 80, 0.16);
-        backdrop-filter: blur(6px);
+        background: color-mix(in srgb, var(--mud-palette-primary) 16%, var(--mud-palette-surface));
+        backdrop-filter: blur(8px);
     }
 
-    @@media (max-width: 1200px) {
-        .play-ai-history-content {
-            max-height: 360px;
+    .play-ai-move-row.is-last {
+        border-color: color-mix(in srgb, var(--mud-palette-success) 46%, transparent);
+        background: color-mix(in srgb, var(--mud-palette-success) 12%, transparent);
+    }
+
+    .play-ai-pgn-section {
+        flex: 0 0 auto;
+    }
+
+    .play-ai-pgn {
+        width: 100%;
+        min-height: 132px;
+        max-height: 180px;
+        resize: vertical;
+        padding: 0.8rem 0.9rem;
+        border-radius: 16px;
+        border: 1px solid var(--play-ai-border);
+        background: rgba(255, 255, 255, 0.04);
+        color: inherit;
+        font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+        font-size: 0.88rem;
+        line-height: 1.45;
+        white-space: pre-wrap;
+    }
+
+    .play-ai-actions {
+        flex-shrink: 0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.35rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--play-ai-border);
+    }
+
+    @@media (max-width: 1360px) {
+        .play-ai-page {
+            --play-ai-panel-height: clamp(540px, calc(100dvh - 116px), 740px);
+        }
+
+        .play-ai-stage {
+            max-width: 1100px;
+        }
+
+        .play-ai-board-column,
+        .play-ai-board {
+            max-width: 720px;
+        }
+    }
+
+    @@media (max-width: 1180px) {
+        .play-ai-layout {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 1rem;
+        }
+
+        .play-ai-side-panel {
+            position: static;
+            height: auto;
+            max-height: none;
+        }
+
+        .play-ai-panel-content {
+            height: auto;
+            max-height: none;
+            min-height: auto;
+        }
+
+        .play-ai-move-table {
+            max-height: min(42vh, 360px);
+        }
+    }
+
+    @@media (max-width: 720px) {
+        .play-ai-page {
+            padding: 0.85rem 0.85rem 1.5rem;
+        }
+
+        .play-ai-board-shell {
+            padding: 0.55rem;
+            border-radius: 20px;
+        }
+
+        .play-ai-board-footer {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .play-ai-timer {
+            align-items: flex-start;
+        }
+
+        .play-ai-panel-content {
+            padding: 0.9rem;
+        }
+
+        .play-ai-pgn {
+            min-height: 120px;
+            max-height: 160px;
+        }
+
+        .play-ai-segmented {
+            grid-template-columns: 1fr;
         }
     }
 </style>
@@ -263,36 +730,61 @@
     private readonly IReadOnlyList<int> DifficultyLevels = Enumerable.Range(1, 20).ToArray();
     private readonly List<MoveRow> _moveRows = new();
 
+    private DotNetObjectReference<PlaywAI>? _objRef;
+    private ElementReference _moveListViewport;
+    private Timer? _gameClockTimer;
+
     private string _currentFen = "start";
     private string _currentPgn = string.Empty;
-    private string _statusText = "Выберите сложность и нажмите \"Начать игру\".";
+    private string _currentUserDisplayName = "Гость";
+    private string _elapsedTimeText = "00:00";
+    private string _statusText = "Выберите сложность, сторону и нажмите «Играть».";
     private string? _resultSaveText;
+    private string? _playerColor;
+    private string? _recordedTerminalSignature;
+    private DateTimeOffset? _gameStartedAtUtc;
+    private DateTimeOffset? _gameFinishedAtUtc;
     private Severity _statusSeverity = Severity.Info;
     private Severity _resultSaveSeverity = Severity.Info;
     private int _selectedDifficulty = DefaultDifficulty;
     private int _activeDifficulty = DefaultDifficulty;
+    private int _moveCount;
+    private SideChoice _selectedSide = SideChoice.Random;
     private bool _boardReady;
     private bool _gameStarted;
+    private bool _gameOver;
     private bool _resultRecordedForCurrentGame;
-    private string? _recordedTerminalSignature;
-    private DotNetObjectReference<PlaywAI>? _objRef;
+    private bool _scrollMovesToBottom;
+    private bool _disposed;
+
+    private bool _showPromotionDialog;
+    private string _promotionSource = string.Empty;
+    private string _promotionTarget = string.Empty;
+
+    private bool IsSetupState => !_gameStarted;
+    private bool IsFinishedState => _gameStarted && _gameOver;
 
     protected override async Task OnInitializedAsync()
     {
         _selectedDifficulty = await LoadStoredDifficultyAsync();
         _activeDifficulty = _selectedDifficulty;
+        await LoadCurrentUserDisplayAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender)
+        if (firstRender)
         {
-            return;
+            _objRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("chessBridge.initGame", _objRef, "chessBoard", _selectedDifficulty);
+            _boardReady = true;
         }
 
-        _objRef = DotNetObjectReference.Create(this);
-        await JS.InvokeVoidAsync("chessBridge.initGame", _objRef, "chessBoard", _selectedDifficulty);
-        _boardReady = true;
+        if (_scrollMovesToBottom && _moveCount > 0)
+        {
+            _scrollMovesToBottom = false;
+            await JS.InvokeVoidAsync("chessBridge.scrollElementToBottom", _moveListViewport);
+        }
     }
 
     [JSInvokable]
@@ -303,24 +795,51 @@
         bool gameStarted,
         bool gameOver,
         string resultCode,
-        string pgn)
+        string pgn,
+        string playerColor)
     {
         _currentFen = fen;
         _currentPgn = pgn ?? string.Empty;
         _statusText = status;
         _gameStarted = gameStarted;
-        _statusSeverity = ResolveStatusSeverity(status, gameStarted, gameOver);
+        _gameOver = gameOver;
+        _playerColor = NormalizePlayerColor(playerColor);
+        _statusSeverity = ResolveStatusSeverity(status, gameStarted, gameOver, resultCode);
+
         RebuildMoveRows(moves);
+        _moveCount = moves?.Length ?? 0;
+        _scrollMovesToBottom = _gameStarted && _moveCount > 0;
+
+        if (gameStarted && gameOver)
+        {
+            CompleteGameClock();
+        }
 
         if (gameStarted && gameOver && Chessss.Services.GameResultService.IsTerminalResultCode(resultCode))
         {
-            await TryRecordAiGameResultAsync(resultCode, fen, moves.Length);
+            await TryRecordAiGameResultAsync(resultCode, fen, _moveCount);
         }
 
         await InvokeAsync(StateHasChanged);
     }
 
-    private async Task StartOrRestartGame()
+    [JSInvokable]
+    public Task PromptForPromotion(string source, string target)
+    {
+        _promotionSource = source;
+        _promotionTarget = target;
+        _showPromotionDialog = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task OnPromotionPieceSelected(string piece)
+    {
+        _showPromotionDialog = false;
+        await JS.InvokeVoidAsync("chessBridge.completePromotion", _promotionSource, _promotionTarget, piece);
+    }
+
+    private async Task StartGameAsync()
     {
         if (!_boardReady)
         {
@@ -330,17 +849,87 @@
         _activeDifficulty = NormalizeDifficulty(_selectedDifficulty);
         _currentFen = "start";
         _currentPgn = string.Empty;
-        _statusText = "Партия подготовлена. Ваш ход белыми.";
         _resultSaveText = null;
-        _statusSeverity = Severity.Success;
         _resultSaveSeverity = Severity.Info;
         _moveRows.Clear();
+        _moveCount = 0;
         _gameStarted = true;
+        _gameOver = false;
         _resultRecordedForCurrentGame = false;
         _recordedTerminalSignature = null;
+        _scrollMovesToBottom = false;
+        _statusText = "Партия запускается...";
+        _statusSeverity = Severity.Info;
+        _playerColor = ResolveExpectedPlayerColor(_selectedSide);
 
+        StartGameClock();
         await SaveStoredDifficultyAsync(_activeDifficulty);
-        await JS.InvokeVoidAsync("chessBridge.startNewGame", _activeDifficulty);
+        await JS.InvokeVoidAsync("chessBridge.startNewGame", _activeDifficulty, GetRequestedSide());
+    }
+
+    private async Task ResetToSetupAsync()
+    {
+        ResetGameClock();
+
+        _currentFen = "start";
+        _currentPgn = string.Empty;
+        _resultSaveText = null;
+        _statusText = "Выберите сложность, сторону и нажмите «Играть».";
+        _statusSeverity = Severity.Info;
+        _resultSaveSeverity = Severity.Info;
+        _moveRows.Clear();
+        _moveCount = 0;
+        _gameStarted = false;
+        _gameOver = false;
+        _playerColor = null;
+        _resultRecordedForCurrentGame = false;
+        _recordedTerminalSignature = null;
+        _scrollMovesToBottom = false;
+
+        if (_boardReady)
+        {
+            await JS.InvokeVoidAsync("chessBridge.prepareForNewGame");
+        }
+    }
+
+    private async Task ConfirmResignAsync()
+    {
+        if (!_boardReady || !_gameStarted || _gameOver)
+        {
+            return;
+        }
+
+        var confirmed = await JS.InvokeAsync<bool>("confirm", "Сдаться? Поражение будет записано в статистику партии.");
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync("chessBridge.resignGame");
+    }
+
+    private async Task LoadCurrentUserDisplayAsync()
+    {
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var principal = authState.User;
+
+            if (principal.Identity?.IsAuthenticated != true)
+            {
+                _currentUserDisplayName = "Гость";
+                return;
+            }
+
+            var user = await UserManager.GetUserAsync(principal);
+            var email = user?.Email ?? principal.Identity?.Name;
+            _currentUserDisplayName = UserProfileRules.GetDisplayName(user?.Nickname, email);
+        }
+        catch
+        {
+            _currentUserDisplayName = "Гость";
+        }
     }
 
     private async Task<int> LoadStoredDifficultyAsync()
@@ -385,7 +974,7 @@
 
     private async Task TryRecordAiGameResultAsync(string resultCode, string finalFen, int moveCount)
     {
-        var terminalSignature = BuildTerminalSignature(finalFen, moveCount);
+        var terminalSignature = BuildTerminalSignature(resultCode, finalFen, moveCount);
 
         if (_resultRecordedForCurrentGame || _recordedTerminalSignature == terminalSignature)
         {
@@ -412,7 +1001,7 @@
             if (saved)
             {
                 _resultSaveSeverity = Severity.Success;
-                _resultSaveText = "Результат партии сохранен в профиль.";
+                _resultSaveText = "Результат партии сохранён в профиль.";
                 return;
             }
 
@@ -434,25 +1023,189 @@
             return;
         }
 
+        await CopyTextAsync(_currentPgn, "PGN скопирован.");
+    }
+
+    private async Task CopyTextAsync(string text, string successMessage)
+    {
         try
         {
-            var copied = await JS.InvokeAsync<bool>("chessBridge.copyText", _currentPgn);
-            Snackbar.Add(copied ? "PGN скопирован." : "Не удалось скопировать PGN.", copied ? Severity.Success : Severity.Warning);
+            var copied = await JS.InvokeAsync<bool>("chessBridge.copyText", text);
+            Snackbar.Add(copied ? successMessage : "Не удалось скопировать текст.", copied ? Severity.Success : Severity.Warning);
         }
         catch (JSException)
         {
-            Snackbar.Add("Не удалось скопировать PGN.", Severity.Warning);
+            Snackbar.Add("Не удалось скопировать текст.", Severity.Warning);
         }
     }
 
     private string GetPgnDisplayText()
     {
         return string.IsNullOrWhiteSpace(_currentPgn)
-            ? "PGN появится здесь после первого хода."
+            ? "PGN будет доступен здесь после завершения партии."
             : _currentPgn;
     }
 
-    private static string BuildTerminalSignature(string finalFen, int moveCount) => $"{moveCount}|{finalFen}";
+    private int GetDisplayedDifficulty() => _gameStarted ? _activeDifficulty : NormalizeDifficulty(_selectedDifficulty);
+
+    private string GetSideButtonClass(SideChoice side)
+    {
+        return _selectedSide == side
+            ? "play-ai-side-option is-selected"
+            : "play-ai-side-option";
+    }
+
+    private string GetSelectedSideHint()
+    {
+        return _selectedSide switch
+        {
+            SideChoice.White => "Вы играете белыми, доска будет ориентирована белыми снизу.",
+            SideChoice.Black => "Вы играете чёрными, доска будет ориентирована чёрными снизу, а ИИ сделает первый ход.",
+            _ => "Сторона определится при старте партии и сразу будет показана в игровом блоке."
+        };
+    }
+
+    private void SelectSide(SideChoice side)
+    {
+        _selectedSide = side;
+    }
+
+    private string GetRequestedSide()
+    {
+        return _selectedSide switch
+        {
+            SideChoice.White => "white",
+            SideChoice.Black => "black",
+            _ => "random"
+        };
+    }
+
+    private static string? ResolveExpectedPlayerColor(SideChoice side)
+    {
+        return side switch
+        {
+            SideChoice.White => "white",
+            SideChoice.Black => "black",
+            _ => null
+        };
+    }
+
+    private string GetPlayerColorText()
+    {
+        if (string.IsNullOrWhiteSpace(_playerColor))
+        {
+            return "Сторона определяется...";
+        }
+
+        return _playerColor == "black"
+            ? "Вы играете чёрными"
+            : "Вы играете белыми";
+    }
+
+    private string GetResolvedSideLabel()
+    {
+        if (_selectedSide != SideChoice.Random)
+        {
+            return _playerColor == "black" ? "Сторона: чёрные" : "Сторона: белые";
+        }
+
+        if (string.IsNullOrWhiteSpace(_playerColor))
+        {
+            return "Сторона: определяется";
+        }
+
+        return _playerColor == "black"
+            ? "Случайно: чёрные"
+            : "Случайно: белые";
+    }
+
+    private string GetMoveCountText() => FormatCount(_moveCount, "ход", "хода", "ходов");
+
+    private static string? NormalizePlayerColor(string? playerColor)
+    {
+        if (string.IsNullOrWhiteSpace(playerColor))
+        {
+            return null;
+        }
+
+        return string.Equals(playerColor, "black", StringComparison.OrdinalIgnoreCase)
+            ? "black"
+            : "white";
+    }
+
+    private string GetMoveRowClass(MoveRow move)
+    {
+        return move.IsLast
+            ? "play-ai-move-row is-last"
+            : "play-ai-move-row";
+    }
+
+    private void StartGameClock()
+    {
+        ResetGameClock();
+
+        _gameStartedAtUtc = DateTimeOffset.UtcNow;
+        _gameFinishedAtUtc = null;
+        UpdateElapsedTimeText();
+
+        _gameClockTimer = new Timer(_ =>
+        {
+            if (_disposed || _gameStartedAtUtc is null || _gameOver)
+            {
+                return;
+            }
+
+            _ = InvokeAsync(() =>
+            {
+                UpdateElapsedTimeText();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private void CompleteGameClock()
+    {
+        if (_gameStartedAtUtc is null)
+        {
+            return;
+        }
+
+        _gameFinishedAtUtc ??= DateTimeOffset.UtcNow;
+        UpdateElapsedTimeText();
+        _gameClockTimer?.Dispose();
+        _gameClockTimer = null;
+    }
+
+    private void ResetGameClock()
+    {
+        _gameClockTimer?.Dispose();
+        _gameClockTimer = null;
+        _gameStartedAtUtc = null;
+        _gameFinishedAtUtc = null;
+        _elapsedTimeText = "00:00";
+    }
+
+    private void UpdateElapsedTimeText()
+    {
+        if (_gameStartedAtUtc is null)
+        {
+            _elapsedTimeText = "00:00";
+            return;
+        }
+
+        var elapsed = (_gameFinishedAtUtc ?? DateTimeOffset.UtcNow) - _gameStartedAtUtc.Value;
+
+        if (elapsed < TimeSpan.Zero)
+        {
+            elapsed = TimeSpan.Zero;
+        }
+
+        _elapsedTimeText = elapsed.TotalHours >= 1
+            ? elapsed.ToString(@"hh\:mm\:ss")
+            : elapsed.ToString(@"mm\:ss");
+    }
+
+    private static string BuildTerminalSignature(string resultCode, string finalFen, int moveCount) => $"{resultCode}|{moveCount}|{finalFen}";
 
     private void RebuildMoveRows(IReadOnlyList<string>? moves)
     {
@@ -469,14 +1222,15 @@
             {
                 Number = (i / 2) + 1,
                 White = moves[i],
-                Black = i + 1 < moves.Count ? moves[i + 1] : "..."
+                Black = i + 1 < moves.Count ? moves[i + 1] : "...",
+                IsLast = i + 2 >= moves.Count
             });
         }
     }
 
     private static int NormalizeDifficulty(int difficulty) => Math.Clamp(difficulty, 1, 20);
 
-    private static Severity ResolveStatusSeverity(string status, bool gameStarted, bool gameOver)
+    private static Severity ResolveStatusSeverity(string status, bool gameStarted, bool gameOver, string resultCode)
     {
         if (!gameStarted)
         {
@@ -485,10 +1239,16 @@
 
         if (gameOver)
         {
-            return Severity.Error;
+            return resultCode switch
+            {
+                "win" => Severity.Success,
+                "draw" => Severity.Info,
+                _ => Severity.Error
+            };
         }
 
-        if (status.Contains("думает", StringComparison.OrdinalIgnoreCase))
+        if (status.Contains("ИИ", StringComparison.OrdinalIgnoreCase)
+            && status.Contains("ход", StringComparison.OrdinalIgnoreCase))
         {
             return Severity.Warning;
         }
@@ -544,14 +1304,36 @@
 
         if (normalized <= 17)
         {
-            return "Продвинутый уровень: понадобится аккуратная игра без грубых ошибок.";
+            return "Продвинутый уровень: потребуется аккуратная игра без грубых ошибок.";
         }
 
         return "Максимальная сложность на этой странице: ИИ ищет самые точные продолжения.";
     }
 
+    private static string FormatCount(int count, string one, string few, string many)
+    {
+        var abs = Math.Abs(count) % 100;
+        var lastDigit = abs % 10;
+
+        if (abs is >= 11 and <= 14)
+        {
+            return $"{count} {many}";
+        }
+
+        return lastDigit switch
+        {
+            1 => $"{count} {one}",
+            2 or 3 or 4 => $"{count} {few}",
+            _ => $"{count} {many}"
+        };
+    }
+
     public async ValueTask DisposeAsync()
     {
+        _disposed = true;
+        _gameClockTimer?.Dispose();
+        _gameClockTimer = null;
+
         if (_objRef is null)
         {
             return;
@@ -568,10 +1350,18 @@
         _objRef.Dispose();
     }
 
+    private enum SideChoice
+    {
+        White,
+        Random,
+        Black
+    }
+
     private sealed class MoveRow
     {
         public int Number { get; init; }
         public string White { get; init; } = string.Empty;
         public string Black { get; init; } = string.Empty;
+        public bool IsLast { get; init; }
     }
 }
