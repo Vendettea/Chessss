@@ -33,7 +33,7 @@
 
             @if (Saved == "1")
             {
-                <MudAlert Severity="Severity.Success" Variant="Variant.Filled">Nickname сохранен.</MudAlert>
+                <MudAlert Severity="Severity.Success" Variant="Variant.Filled">Никнейм сохранен.</MudAlert>
             }
 
             @if (!string.IsNullOrWhiteSpace(_error))
@@ -57,7 +57,7 @@
                                           Class="mb-3" />
 
                             <MudText Typo="Typo.caption" Class="profile-muted d-block mb-4">
-                                3-20 символов: латинские буквы, цифры, _ и -.
+                                3-20 символов: латинские буквы, цифры, _ и -
                             </MudText>
 
                             <MudButton ButtonType="ButtonType.Submit"
@@ -174,7 +174,7 @@
 
         if (!await PlayerProfiles.IsNicknameAvailableAsync(nickname, _currentUser.Id))
         {
-            _error = "Этот nickname уже занят.";
+            _error = "Этот никнейм уже занят.";
             return;
         }
 
@@ -194,9 +194,9 @@
 
     private sealed class ProfileEditModel
     {
-        [Required(ErrorMessage = "Nickname обязателен.")]
-        [StringLength(UserProfileRules.MaxNicknameLength, MinimumLength = UserProfileRules.MinNicknameLength, ErrorMessage = "Nickname должен быть длиной от 3 до 20 символов.")]
-        [RegularExpression("^[A-Za-z0-9_-]+$", ErrorMessage = "Nickname может содержать только латинские буквы, цифры, _ и -.")]
+        [Required(ErrorMessage = "Никнейм обязателен.")]
+        [StringLength(UserProfileRules.MaxNicknameLength, MinimumLength = UserProfileRules.MinNicknameLength, ErrorMessage = "Никнейм должен быть длиной от 3 до 20 символов.")]
+        [RegularExpression("^[A-Za-z0-9_-]+$", ErrorMessage = "Никнейм может содержать только латинские буквы, цифры, _ и -.")]
         public string Nickname { get; set; } = string.Empty;
     }
 }

@@ -11,9 +11,6 @@
 <PageTitle>UltraChess - Гайдики</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-12">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-        <MudText Typo="Typo.h3" Align="Align.Left">Гайды по шахматам</MudText>
-    </div>
 
     <MudPaper Class="pa-6 mb-8" Elevation="3">
         <MudTextField T="string"
@@ -34,7 +31,7 @@
         </MudSelect>
     </MudPaper>
 
-    <div style="display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding: 8px; height: 600px;">
+    <div style="display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding: 8px; height: 700px;">
         @foreach (var material in _filteredMaterials)
         {
             <MudCard Elevation="2" Class="rounded-lg training-card" Style="transition: all 0.3s ease; cursor: pointer; overflow: hidden; flex-shrink: 0;">

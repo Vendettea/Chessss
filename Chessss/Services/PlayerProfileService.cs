@@ -166,19 +166,19 @@ namespace Chessss.Services
         {
             if (string.IsNullOrWhiteSpace(nickname))
             {
-                return "Nickname обязателен.";
+                return "Никнейм обязателен.";
             }
 
             var trimmed = nickname.Trim();
 
             if (trimmed.Length < MinNicknameLength || trimmed.Length > MaxNicknameLength)
             {
-                return $"Nickname должен быть длиной от {MinNicknameLength} до {MaxNicknameLength} символов.";
+                return $"Никнейм должен быть длиной от {MinNicknameLength} до {MaxNicknameLength} символов.";
             }
 
             if (!NicknameRegex().IsMatch(trimmed))
             {
-                return "Nickname может содержать только латинские буквы, цифры, _ и -.";
+                return "Никнейм может содержать только латинские буквы, цифры, _ и -.";
             }
 
             return null;

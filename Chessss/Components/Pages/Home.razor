@@ -9,7 +9,7 @@
     <div class="hero-section text-center py-12">
         <MudText Typo="Typo.h1" Class="@(IsDarkMode ? "text-gradient mb-4" : "text-gradient-light mb-4")">UltraChess</MudText>
         <MudText Typo="Typo.h3" Class="mb-8 fw-bold" Style="@($"color: {(IsDarkMode ? "#b0b0b0" : "#424242")}; transition: 0.3s;")">
-            Освойте шахматы на новом уровне!
+            Развивай свои шахматные навыки с помощью анализа партий, гайдов и ИИ-помощника
         </MudText>
         
         <div class="d-flex justify-center gap-4">
@@ -26,7 +26,7 @@
                        Size="Size.Large"
                        Href="/playwithai"
                        Style="border-radius: 12px; padding: 12px 24px; border-width: 2px;">
-                Играть с Ботом
+                Играть с ботом
             </MudButton>
         </div>
     </div>
@@ -38,9 +38,9 @@
                 <MudPaper Elevation="2" Class="pa-6 feature-card" 
                           Style="@($"background-color: {(IsDarkMode ? "#1e1e1e" : "#ffffff")}; border-color: {(IsDarkMode ? "#333" : "#e0e0e0")}; transition: 0.3s;")">
                     <MudIcon Icon="@Icons.Material.Filled.AutoGraph" Color="Color.Success" Size="Size.Large" Class="mb-4"/>
-                    <MudText Typo="Typo.h6" Class="fw-bold" Style="@($"color: {(IsDarkMode ? "#fff" : "#212121")}")">Точный анализ</MudText>
+                    <MudText Typo="Typo.h6" Class="fw-bold" Style="@($"color: {(IsDarkMode ? "#fff" : "#212121")}")">Анализ партии</MudText>
                     <MudText Typo="Typo.body2" Style="@($"color: {(IsDarkMode ? "#b0b0b0" : "#616161")}")">
-                        Движок Stockfish разберет каждую твою партию и покажет, где ты допустил ошибку.
+                        Движок Stockfish разберет твою партию и покажет твои ошибки и лучшие ходы
                     </MudText>
                 </MudPaper>
             </div>
@@ -51,9 +51,9 @@
                 <MudPaper Elevation="2" Class="pa-6 feature-card"
                           Style="@($"background-color: {(IsDarkMode ? "#1e1e1e" : "#ffffff")}; border-color: {(IsDarkMode ? "#333" : "#e0e0e0")}; transition: 0.3s;")">
                     <MudIcon Icon="@Icons.Material.Filled.Psychology" Color="Color.Info" Size="Size.Large" Class="mb-4"/>
-                    <MudText Typo="Typo.h6" Class="fw-bold" Style="@($"color: {(IsDarkMode ? "#fff" : "#212121")}")">ИИ Турниры</MudText>
+                    <MudText Typo="Typo.h6" Class="fw-bold" Style="@($"color: {(IsDarkMode ? "#fff" : "#212121")}")">ИИ-бот</MudText>
                     <MudText Typo="Typo.body2" Style="@($"color: {(IsDarkMode ? "#b0b0b0" : "#616161")}")">
-                        Тренируйся против адаптивного интеллекта, который подстраивается под твой уровень.
+                        Сам выберай уровень сложности и играй с ботом
                     </MudText>
                 </MudPaper>
             </div>
@@ -66,7 +66,7 @@
                     <MudIcon Icon="@Icons.Material.Filled.ModelTraining" Color="Color.Warning" Size="Size.Large" Class="mb-4"/>
                     <MudText Typo="Typo.h6" Class="fw-bold" Style="@($"color: {(IsDarkMode ? "#fff" : "#212121")}")">Персональный план</MudText>
                     <MudText Typo="Typo.body2" Style="@($"color: {(IsDarkMode ? "#b0b0b0" : "#616161")}")">
-                        Нейросеть составит программу обучения на основе твоих типичных ошибок.
+                        Нейросеть составит программу обучения на основе твоей статистики и целей
                     </MudText>
                 </MudPaper>
             </div>
