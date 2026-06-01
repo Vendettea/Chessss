@@ -6,12 +6,15 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options
+        .UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"))
+        .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
 
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, "App_Data", "DataProtectionKeys")))
@@ -42,6 +45,7 @@ builder.Services.AddScoped<TrainingService>();
 builder.Services.AddScoped<Chessss.Services.UserDifficultyService>();
 builder.Services.AddScoped<Chessss.Services.PlayerProfileService>();
 builder.Services.AddScoped<Chessss.Services.GameResultService>();
+builder.Services.AddScoped<Chessss.Services.UserGameService>();
 builder.Services.AddMudServices();
 builder.Services.AddRazorPages();
 builder.Services.AddRazorComponents()

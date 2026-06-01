@@ -1,0 +1,260 @@
+@page "/my-games"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using System.Globalization
+@using Chessss.Models
+@using Chessss.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+@inject UserGameService UserGameService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>UltraChess - Мои партии</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-games-page py-4 py-md-6">
+    <div class="my-games-toolbar mb-4">
+        <MudStack Spacing="1">
+            <MudText Typo="Typo.h4" Class="my-games-title" style="text-align:center">Мои партии</MudText>
+        </MudStack>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.UploadFile"
+                   OnClick="ToggleImportPanel"
+                   Class="my-games-import-button">
+            Импорт PGN
+        </MudButton>
+    </div>
+
+    @if (_showImportPanel)
+    {
+        <MudPaper Elevation="2" Class="pa-3 pa-md-4 mb-4">
+            <MudStack Spacing="2">
+                <MudText Typo="Typo.h6">Импорт PGN</MudText>
+                <MudTextField @bind-Value="_importPgn"
+                              Label="Вставьте PGN"
+                              Variant="Variant.Outlined"
+                              Lines="16"
+                              AutoGrow="true"
+                              FullWidth="true" />
+                @if (!string.IsNullOrWhiteSpace(_importError))
+                {
+                    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true">
+                        @_importError
+                    </MudAlert>
+                }
+                <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
+                    <MudButton Variant="Variant.Text" OnClick="CloseImportPanel">Отмена</MudButton>
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Success"
+                               StartIcon="@Icons.Material.Filled.Save"
+                               Disabled="@_importBusy"
+                               OnClick="ImportPgnAsync">
+                        Импортировать
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+    }
+
+    <MudPaper Elevation="3" Class="pa-3 pa-md-4">
+        <MudTable T="UserGame"
+                  @ref="_table"
+                  ServerData="LoadGamesAsync"
+                  Hover="true"
+                  Dense="true"
+                  FixedHeader="true"
+                  Height="clamp(26rem, 72vh, 54rem)">
+            <HeaderContent>
+                <MudTh>Игроки</MudTh>
+                <MudTh>Результат</MudTh>
+                <MudTh>Точность</MudTh>
+                <MudTh>Ходы</MudTh>
+                <MudTh>Время (мин)</MudTh>
+                <MudTh>Дата</MudTh>
+                <MudTh>Источник</MudTh>
+                <MudTh>Анализ</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Игроки">
+                    <div class="d-flex flex-column game-player-stack">
+                        <span class="fw-semibold">@context.WhitePlayer</span>
+                        <span class="my-games-muted">@context.BlackPlayer</span>
+                    </div>
+                </MudTd>
+                <MudTd DataLabel="Результат">@context.Result</MudTd>
+                <MudTd DataLabel="Точность">
+                    @(context.IsAnalyzed
+                        ? $"{context.WhiteAccuracy?.ToString("0.##", CultureInfo.CurrentCulture) ?? "—"} / {context.BlackAccuracy?.ToString("0.##", CultureInfo.CurrentCulture) ?? "—"}"
+                        : "— / —")
+                </MudTd>
+                <MudTd DataLabel="Ходы">@context.MoveCount</MudTd>
+                <MudTd DataLabel="Время (мин)">@context.DurationMinutes</MudTd>
+                <MudTd DataLabel="Дата">@context.PlayedAt.ToString("dd.MM.yyyy")</MudTd>
+                <MudTd DataLabel="Источник">@context.Source</MudTd>
+                <MudTd DataLabel="Анализ">
+                    <MudLink Href="@($"/analyze/{context.Id}")">
+                        @(context.IsAnalyzed ? "Да" : "Нет")
+                    </MudLink>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Class="py-6 text-center">У вас нет ни одной партии</MudText>
+            </NoRecordsContent>
+            <LoadingContent>
+                <MudText Class="py-6 text-center">Загрузка...</MudText>
+            </LoadingContent>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[] { 10, 20, 50 }" />
+            </PagerContent>
+        </MudTable>
+    </MudPaper>
+</MudContainer>
+
+<style>
+    .my-games-page {
+        max-width: 100%;
+        height: calc(100vh - 96px);
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-bottom: 1rem;
+    }
+
+    .my-games-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .my-games-title {
+        text-align: center;
+    }
+
+    .my-games-muted {
+        opacity: 0.72;
+        font-size: clamp(0.88rem, 0.2vw + 0.82rem, 0.98rem);
+    }
+
+    .game-player-stack {
+        min-width: 0;
+        gap: 0.15rem;
+        font-size: clamp(0.9rem, 0.25vw + 0.82rem, 1rem);
+    }
+
+    .game-player-stack span {
+        overflow-wrap: anywhere;
+    }
+
+    .my-games-import-button {
+        min-width: clamp(10rem, 22vw, 14rem);
+    }
+</style>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private MudTable<UserGame>? _table;
+    private string? _userId;
+    private bool _showImportPanel;
+    private bool _importBusy;
+    private string _importPgn = string.Empty;
+    private string? _importError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthenticationStateTask is null)
+        {
+            Navigation.NavigateTo("/auth", forceLoad: true);
+            return;
+        }
+
+        var authState = await AuthenticationStateTask;
+
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/auth", forceLoad: true);
+            return;
+        }
+
+        var user = await UserManager.GetUserAsync(authState.User);
+
+        if (user is null)
+        {
+            Navigation.NavigateTo("/auth", forceLoad: true);
+            return;
+        }
+
+        _userId = user.Id;
+    }
+
+    private async Task<TableData<UserGame>> LoadGamesAsync(TableState state, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(_userId))
+        {
+            return new TableData<UserGame>
+            {
+                Items = Array.Empty<UserGame>(),
+                TotalItems = 0
+            };
+        }
+
+        token.ThrowIfCancellationRequested();
+        var result = await UserGameService.GetUserGamesAsync(_userId, state.Page, state.PageSize, token);
+
+        return new TableData<UserGame>
+        {
+            Items = result.Items,
+            TotalItems = result.TotalCount
+        };
+    }
+
+    private void ToggleImportPanel()
+    {
+        _showImportPanel = !_showImportPanel;
+        _importError = null;
+    }
+
+    private void CloseImportPanel()
+    {
+        _showImportPanel = false;
+        _importError = null;
+        _importPgn = string.Empty;
+        _importBusy = false;
+    }
+
+    private async Task ImportPgnAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_userId))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_importPgn))
+        {
+            _importError = "PGN не может быть пустым.";
+            return;
+        }
+
+        _importBusy = true;
+        _importError = null;
+
+        var importResult = await UserGameService.ImportUserGameFromPgnAsync(_userId, _importPgn);
+
+        if (importResult.Success)
+        {
+            Snackbar.Add(importResult.Message, Severity.Success);
+            await _table!.ReloadServerData();
+            CloseImportPanel();
+            return;
+        }
+
+        _importError = importResult.Message;
+        _importBusy = false;
+    }
+}

@@ -34,8 +34,9 @@
                 <MudNavLink Href="/playwithai" Icon="@Icons.Material.Filled.SmartToy">@(!_isMini ? "Играть с ИИ" : "")</MudNavLink>
                 <MudNavLink Href="/analysis" Icon="@Icons.Material.Filled.SmartToy">@(!_isMini ? "Анализ партии" : "")</MudNavLink>
                 <MudNavLink Href="/training" Icon="@Icons.Material.Filled.School">@(!_isMini ? "Обучение" : "")</MudNavLink>
-                <MudNavLink Href="/admin/training" Icon="@Icons.Material.Filled.AdminPanelSettings">Админка (Обучение)</MudNavLink>
+                <MudNavLink Href="/admin/training" Icon="@Icons.Material.Filled.AdminPanelSettings">Админка</MudNavLink>
                 <MudNavLink Href="/leaderboard" Icon="@Icons.Material.Filled.Leaderboard">@(!_isMini ? "Таблица лидеров" : "")</MudNavLink>
+                <MudNavLink Href="/my-games" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Мои партии</MudNavLink>
             </MudNavMenu>
 
             <div class="pa-2 d-flex flex-column align-center" style="border-top: 1px solid rgba(128,128,128,0.2);">

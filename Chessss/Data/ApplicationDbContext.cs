@@ -13,6 +13,7 @@ namespace Chessss.Data
         public DbSet<TrainingMaterial> TrainingMaterials { get; set; }
         public DbSet<Tag> Tags { get; set; }
         public DbSet<Feedback> Feedbacks { get; set; }
+        public DbSet<UserGame> UserGames { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -36,6 +37,17 @@ namespace Chessss.Data
                 .HasMany(m => m.Tags)
                 .WithMany(t => t.Materials)
                 .UsingEntity(j => j.ToTable("MaterialTags"));
+
+            modelBuilder.Entity<UserGame>(entity =>
+            {
+                entity.HasOne<ApplicationUser>()
+                    .WithMany()
+                    .HasForeignKey(x => x.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(x => new { x.UserId, x.PlayedAt });
+                entity.HasIndex(x => new { x.UserId, x.ExternalId }).IsUnique();
+            });
         }
     }
 }

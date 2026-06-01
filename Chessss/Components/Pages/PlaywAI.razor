@@ -10,6 +10,7 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject Chessss.Services.UserDifficultyService UserDifficultyService
 @inject Chessss.Services.GameResultService GameResults
+@inject Chessss.Services.UserGameService UserGames
 @inject ISnackbar Snackbar
 @implements IAsyncDisposable
 
@@ -86,7 +87,7 @@
                         <div class="play-ai-panel-head">
                             <MudText Typo="Typo.h5">Новая партия</MudText>
                             <MudText Typo="Typo.body2" Class="play-ai-muted">
-                                Выберите силу бота и сторону, затем начните игру.
+                                Выберите уровень бота и сторону, затем начните игру.
                             </MudText>
                         </div>
 
@@ -754,6 +755,7 @@
     private bool _gameStarted;
     private bool _gameOver;
     private bool _resultRecordedForCurrentGame;
+    private bool _resultRecordingInProgress;
     private bool _scrollMovesToBottom;
     private bool _disposed;
 
@@ -856,6 +858,7 @@
         _gameStarted = true;
         _gameOver = false;
         _resultRecordedForCurrentGame = false;
+        _resultRecordingInProgress = false;
         _recordedTerminalSignature = null;
         _scrollMovesToBottom = false;
         _statusText = "Партия запускается...";
@@ -883,6 +886,7 @@
         _gameOver = false;
         _playerColor = null;
         _resultRecordedForCurrentGame = false;
+        _resultRecordingInProgress = false;
         _recordedTerminalSignature = null;
         _scrollMovesToBottom = false;
 
@@ -976,13 +980,12 @@
     {
         var terminalSignature = BuildTerminalSignature(resultCode, finalFen, moveCount);
 
-        if (_resultRecordedForCurrentGame || _recordedTerminalSignature == terminalSignature)
+        if (_resultRecordedForCurrentGame || _resultRecordingInProgress || _recordedTerminalSignature == terminalSignature)
         {
             return;
         }
 
-        _resultRecordedForCurrentGame = true;
-        _recordedTerminalSignature = terminalSignature;
+        _resultRecordingInProgress = true;
 
         try
         {
@@ -996,23 +999,103 @@
                 return;
             }
 
-            var saved = await GameResults.RecordAiGameResultAsync(userId, resultCode);
+            var statsSaved = await GameResults.RecordAiGameResultAsync(userId, resultCode);
+            var gameSaved = await TrySaveUserGameAsync(userId, resultCode, terminalSignature);
 
-            if (saved)
+            if (statsSaved && gameSaved)
             {
+                _resultRecordedForCurrentGame = true;
+                _recordedTerminalSignature = terminalSignature;
                 _resultSaveSeverity = Severity.Success;
-                _resultSaveText = "Результат партии сохранён в профиль.";
+                _resultSaveText = "Результат партии сохранён в профиль и добавлен в мои партии.";
+                return;
+            }
+
+            if (statsSaved)
+            {
+                _resultSaveSeverity = Severity.Warning;
+                _resultSaveText = "Результат партии сохранён в профиль, но запись в мои партии не создалась.";
+                return;
+            }
+
+            if (gameSaved)
+            {
+                _resultSaveSeverity = Severity.Warning;
+                _resultSaveText = "Запись в мои партии создана, но результат не был записан в статистику.";
                 return;
             }
 
             _resultSaveSeverity = Severity.Warning;
-            _resultSaveText = "Партия завершена, но результат не был записан в статистику.";
+            _resultSaveText = "Партия завершена, но сохранить результат не удалось.";
         }
         catch
         {
             _resultSaveSeverity = Severity.Warning;
             _resultSaveText = "Партия завершена, но результат не удалось сохранить.";
         }
+        finally
+        {
+            _resultRecordingInProgress = false;
+        }
+    }
+
+    private async Task<bool> TrySaveUserGameAsync(string userId, string resultCode, string terminalSignature)
+    {
+        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(_currentPgn))
+        {
+            return false;
+        }
+
+        var isPlayerBlack = string.Equals(_playerColor, "black", StringComparison.OrdinalIgnoreCase);
+        var result = ResolveStoredGameResult(resultCode, isPlayerBlack);
+
+        var userGame = new UserGame
+        {
+            UserId = userId,
+            PlayedAt = _gameFinishedAtUtc?.UtcDateTime ?? DateTime.UtcNow,
+            WhitePlayer = isPlayerBlack ? "Bot" : _currentUserDisplayName,
+            BlackPlayer = isPlayerBlack ? _currentUserDisplayName : "Bot",
+            Result = result,
+            MoveCount = _moveCount,
+            DurationMinutes = CalculateDurationMinutes(),
+            Source = "UltraChess",
+            ExternalId = $"{terminalSignature}|{_gameStartedAtUtc?.UtcDateTime.Ticks ?? 0L}",
+            IsAnalyzed = false,
+            WhiteAccuracy = null,
+            BlackAccuracy = null,
+            PgnContent = _currentPgn
+        };
+
+        return await UserGames.SaveUserGameAsync(userGame);
+    }
+
+    private int CalculateDurationMinutes()
+    {
+        if (_gameStartedAtUtc is null)
+        {
+            return 0;
+        }
+
+        var finishedAt = _gameFinishedAtUtc ?? DateTimeOffset.UtcNow;
+        var elapsed = finishedAt - _gameStartedAtUtc.Value;
+
+        if (elapsed <= TimeSpan.Zero)
+        {
+            return 1;
+        }
+
+        return Math.Max(1, (int)Math.Ceiling(elapsed.TotalMinutes));
+    }
+
+    private static string ResolveStoredGameResult(string resultCode, bool isPlayerBlack)
+    {
+        return resultCode.Trim().ToLowerInvariant() switch
+        {
+            "win" => isPlayerBlack ? "0-1" : "1-0",
+            "loss" => isPlayerBlack ? "1-0" : "0-1",
+            "draw" => "1/2-1/2",
+            _ => "*"
+        };
     }
 
     private async Task CopyPgnAsync()
@@ -1059,9 +1142,9 @@
     {
         return _selectedSide switch
         {
-            SideChoice.White => "Вы играете белыми, доска будет ориентирована белыми снизу.",
-            SideChoice.Black => "Вы играете чёрными, доска будет ориентирована чёрными снизу, а ИИ сделает первый ход.",
-            _ => "Сторона определится при старте партии и сразу будет показана в игровом блоке."
+            SideChoice.White => "Вы играете белыми, доска будет ориентирована белыми снизу",
+            SideChoice.Black => "Вы играете чёрными, доска будет ориентирована чёрными снизу",
+            _ => "Сторона определится при старте партии"
         };
     }
 
