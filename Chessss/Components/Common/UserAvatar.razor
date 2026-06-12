@@ -1,0 +1,43 @@
+@using MudBlazor
+
+<div class="@CssClass" title="@EffectiveTitle">
+    @if (!string.IsNullOrWhiteSpace(AvatarUrl))
+    {
+        <img src="@AvatarUrl" alt="@EffectiveAltText" />
+    }
+    else
+    {
+        <span>@Initial</span>
+    }
+</div>
+
+@code {
+    [Parameter] public string? AvatarUrl { get; set; }
+    [Parameter] public string? DisplayName { get; set; }
+    [Parameter] public string? AltText { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public Size AvatarSize { get; set; } = Size.Medium;
+    [Parameter] public string? Title { get; set; }
+
+    private string CssClass => $"user-avatar user-avatar--{AvatarSize.ToString().ToLowerInvariant()} {Class}".Trim();
+
+    private string EffectiveAltText => string.IsNullOrWhiteSpace(AltText)
+        ? DisplayName ?? "Аватар"
+        : AltText;
+
+    private string EffectiveTitle => string.IsNullOrWhiteSpace(Title)
+        ? DisplayName ?? "Аватар"
+        : Title;
+
+    private string Initial
+    {
+        get
+        {
+            var value = string.IsNullOrWhiteSpace(DisplayName)
+                ? "U"
+                : DisplayName.Trim()[0].ToString().ToUpperInvariant();
+
+            return value;
+        }
+    }
+}

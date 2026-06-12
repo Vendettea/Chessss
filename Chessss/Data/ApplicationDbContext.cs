@@ -28,6 +28,11 @@ namespace Chessss.Data
                 entity.Property(u => u.NormalizedNickname)
                     .HasMaxLength(20);
 
+                entity.Property(u => u.AvatarUrl)
+                    .HasMaxLength(512);
+
+                entity.Property(u => u.MaxAIDifficultyBeaten);
+
                 entity.HasIndex(u => u.NormalizedNickname)
                     .IsUnique()
                     .HasDatabaseName("UserNicknameIndex");

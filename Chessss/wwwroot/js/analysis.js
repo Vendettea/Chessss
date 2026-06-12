@@ -3,15 +3,21 @@ window.analysisBridge = {
     game: null,
     stockfish: null,
     dotNetRef: null,
+    engineReady: false,
+    engineListenerCleanup: null,
+    engineInitError: null,
+    engineVariant: null,
     currentMoveIndex: -1,
     history: [],
     evaluations: [],
 
-    init: function (dotNetRef) {
+    init: async function (dotNetRef, engineKey) {
         this.dotNetRef = dotNetRef;
         this.game = new Chess();
+        this.engineReady = false;
+        this.engineInitError = null;
+        this.engineVariant = this.normalizeEngineKey(engineKey);
         
-        var self = this;
         var config = {
             draggable: true,
             position: 'start',
@@ -23,16 +29,78 @@ window.analysisBridge = {
         this.board = Chessboard('analysis-board', config);
 
         try {
-            if (typeof Stockfish !== 'undefined') {
-                this.stockfish = Stockfish();
-                this.stockfish.onmessage = function(line) {
-                    self.handleStockfishMessage(line);
-                };
-            } else {
-                console.warn("Stockfish is not defined.");
-            }
-        } catch(e) {
+            this.stockfish = await window.stockfishRuntime.createEngine({
+                engineKey: this.engineVariant,
+                configure: (engine) => {
+                    engine.postMessage('setoption name UCI_AnalyseMode value true');
+                }
+            });
+
+            this.engineReady = true;
+            this.engineListenerCleanup = window.stockfishRuntime.attachListener(this.stockfish, (message) => {
+                this.handleStockfishMessage(message);
+            });
+            return true;
+        } catch (e) {
+            this.stockfish = null;
+            this.engineReady = false;
+            this.engineInitError = e?.message || 'Stockfish не загрузился.';
             console.error("Error loading stockfish: ", e);
+            return true;
+        }
+    },
+
+    normalizeEngineKey: function () {
+        return 'stockfish18Lite';
+    },
+
+    ensureEngine: async function (engineKey) {
+        const normalizedEngineKey = this.normalizeEngineKey(engineKey);
+
+        if (this.stockfish && this.engineReady && this.engineVariant === normalizedEngineKey) {
+            return true;
+        }
+
+        if (this.engineListenerCleanup) {
+            try {
+                this.engineListenerCleanup();
+            } catch {
+            }
+
+            this.engineListenerCleanup = null;
+        }
+
+        if (this.stockfish) {
+            try {
+                window.stockfishRuntime.stopEngine(this.stockfish);
+            } catch {
+            }
+        }
+
+        this.stockfish = null;
+        this.engineReady = false;
+        this.engineInitError = null;
+        this.engineVariant = normalizedEngineKey;
+
+        try {
+            this.stockfish = await window.stockfishRuntime.createEngine({
+                engineKey: normalizedEngineKey,
+                configure: (engine) => {
+                    engine.postMessage('setoption name UCI_AnalyseMode value true');
+                }
+            });
+
+            this.engineReady = true;
+            this.engineListenerCleanup = window.stockfishRuntime.attachListener(this.stockfish, (message) => {
+                this.handleStockfishMessage(message);
+            });
+            return true;
+        } catch (error) {
+            this.stockfish = null;
+            this.engineReady = false;
+            this.engineInitError = error?.message || 'Stockfish не загрузился.';
+            console.error("Error loading stockfish: ", error);
+            return false;
         }
     },
 
@@ -81,14 +149,25 @@ window.analysisBridge = {
     },
     
     evaluatePosition: function(fen) {
-        if (this.stockfish) {
+        if (this.stockfish && this.engineReady) {
             this.stockfish.postMessage("position fen " + fen);
             this.stockfish.postMessage("go depth 15");
         }
     },
 
-    analyzeAllMoves: function() {
-        if (!this.history || this.history.length === 0) return;
+    analyzeAllMoves: async function(engineKey) {
+        if (!this.history || this.history.length === 0) {
+            if (this.dotNetRef) {
+                this.dotNetRef.invokeMethodAsync('OnAnalysisComplete');
+            }
+            return false;
+        }
+
+        if (!await this.ensureEngine(engineKey)) {
+            return false;
+        }
+
+        this.stockfish.postMessage("ucinewgame");
         
         // Reset evaluations
         this.evaluations = new Array(this.history.length).fill(null);
@@ -97,6 +176,7 @@ window.analysisBridge = {
         this.isAnalyzingAll = true;
         this.currentAnalysisIndex = -1;
         this.analyzeMove(this.currentAnalysisIndex);
+        return true;
     },
 
     analyzeMove: function(index) {
@@ -149,8 +229,41 @@ window.analysisBridge = {
                      if (this.dotNetRef) {
                          this.dotNetRef.invokeMethodAsync('OnAnalysisComplete');
                      }
-                 }
-             }
+                  }
+              }
+         }
+    },
+
+    destroy: function () {
+        if (this.engineListenerCleanup) {
+            this.engineListenerCleanup();
+            this.engineListenerCleanup = null;
         }
+
+        if (this.stockfish) {
+            try {
+                window.stockfishRuntime.stopEngine(this.stockfish);
+            } catch {
+            }
+        }
+
+        if (this.board && typeof this.board.destroy === 'function') {
+            try {
+                this.board.destroy();
+            } catch {
+            }
+        }
+
+        this.stockfish = null;
+        this.engineReady = false;
+        this.engineInitError = null;
+        this.engineVariant = null;
+        this.board = null;
+        this.game = null;
+        this.dotNetRef = null;
+        this.history = [];
+        this.evaluations = [];
+        this.currentMoveIndex = -1;
+        this.isAnalyzingAll = false;
     }
 };

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.FileProviders;
 using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -46,6 +47,9 @@ builder.Services.AddScoped<Chessss.Services.UserDifficultyService>();
 builder.Services.AddScoped<Chessss.Services.PlayerProfileService>();
 builder.Services.AddScoped<Chessss.Services.GameResultService>();
 builder.Services.AddScoped<Chessss.Services.UserGameService>();
+builder.Services.AddScoped<Chessss.Services.UploadStorageService>();
+builder.Services.AddScoped<Chessss.Services.UserAvatarService>();
+builder.Services.AddScoped<Chessss.Services.UserProfileChangeNotifier>();
 builder.Services.AddMudServices();
 builder.Services.AddRazorPages();
 builder.Services.AddRazorComponents()
@@ -53,6 +57,8 @@ builder.Services.AddRazorComponents()
 builder.Services.AddCascadingAuthenticationState();
 
 var app = builder.Build();
+var uploadsRoot = Path.Combine(Path.GetTempPath(), "Chessss", "uploads");
+Directory.CreateDirectory(uploadsRoot);
 
 using (var scope = app.Services.CreateScope())
 {
@@ -81,6 +87,11 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsRoot),
+    RequestPath = "/uploads"
+});
 
 app.UseRouting();
 

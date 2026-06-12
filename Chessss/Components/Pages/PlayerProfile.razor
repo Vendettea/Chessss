@@ -1,39 +1,83 @@
 @page "/player/{Id}"
 @rendermode InteractiveServer
+@using Chessss.Components.Common
 @using Chessss.Services
 
 @inject PlayerProfileService PlayerProfiles
 
 <PageTitle>UltraChess - Игрок</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-8">
+<div class="page-shell player-profile-page">
     @if (_loading)
     {
         <MudProgressLinear Indeterminate="true" Color="Color.Success" />
     }
     else if (_profile is null)
     {
-        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
-            Игрок не найден.
-        </MudAlert>
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">Игрок не найден.</MudAlert>
     }
     else
     {
         <MudStack Spacing="3">
-            <div>
+            <div class="player-profile-heading">
                 <MudText Typo="Typo.h3">@_profile.Nickname</MudText>
-                <MudText Typo="Typo.body2" Class="player-muted">Публичный профиль игрока</MudText>
+                <MudText Typo="Typo.body1" Class="player-muted">Публичный профиль игрока UltraChess</MudText>
             </div>
 
-            <MudPaper Elevation="3" Class="pa-5 player-panel">
-                <div class="player-stat-grid">
-                    <span>EloRating</span><strong>@_profile.EloRating</strong>
-                    <span>GamesPlayed</span><strong>@_profile.GamesPlayed</strong>
-                    <span>Wins</span><strong>@_profile.Wins</strong>
-                    <span>Losses</span><strong>@_profile.Losses</strong>
-                    <span>Draws</span><strong>@_profile.Draws</strong>
-                    <span>WinRate</span><strong>@_profile.WinRateText</strong>
-                    <span>Место</span><strong>@(_profile.Rank?.ToString() ?? "нет в лидерборде")</strong>
+            <MudPaper Elevation="0" Class="public-profile-card player-profile-hero">
+                <div class="player-profile-hero__head">
+                    <UserAvatar AvatarUrl="@_profile.AvatarUrl"
+                                DisplayName="@_profile.Nickname"
+                                AvatarSize="Size.Large" />
+
+                    <div class="player-profile-hero__copy">
+                        <MudText Typo="Typo.h4">@_profile.Nickname</MudText>
+                        <MudText Typo="Typo.body2" Class="player-muted">В рейтинге: @(_profile.Rank?.ToString() ?? "пока нет")</MudText>
+                        <MudText Typo="Typo.caption" Class="player-muted">Публичный доступ без email и внутренних данных.</MudText>
+                    </div>
+                </div>
+
+                <div class="responsive-grid player-profile-stats">
+                    <div class="stats-card">
+                        <span>Elo / рейтинг</span>
+                        <strong>@_profile.EloRating</strong>
+                    </div>
+                    <div class="stats-card">
+                        <span>Место в рейтинге</span>
+                        <strong>@(_profile.Rank?.ToString() ?? "—")</strong>
+                    </div>
+                    <div class="stats-card">
+                        <span>Макс. уровень ИИ</span>
+                        <strong>@_profile.MaxAIDifficultyText</strong>
+                    </div>
+                    <div class="stats-card">
+                        <span>Сыграно партий</span>
+                        <strong>@_profile.GamesPlayed</strong>
+                    </div>
+                    <div class="stats-card">
+                        <span>Победы</span>
+                        <strong>@_profile.Wins</strong>
+                    </div>
+                    <div class="stats-card">
+                        <span>Поражения</span>
+                        <strong>@_profile.Losses</strong>
+                    </div>
+                    <div class="stats-card">
+                        <span>Ничьи</span>
+                        <strong>@_profile.Draws</strong>
+                    </div>
+                    <div class="stats-card">
+                        <span>Win rate</span>
+                        <strong>@_profile.WinRateText</strong>
+                    </div>
+                    <div class="stats-card">
+                        <span>Средняя точность</span>
+                        <strong>@_profile.AverageAccuracyText</strong>
+                    </div>
+                    <div class="stats-card">
+                        <span>Дата регистрации</span>
+                        <strong>@_profile.RegisteredAt.ToLocalTime().ToString("dd.MM.yyyy")</strong>
+                    </div>
                 </div>
             </MudPaper>
 
@@ -45,34 +89,7 @@
             </MudButton>
         </MudStack>
     }
-</MudContainer>
-
-<style>
-    .player-panel {
-        border-radius: 12px;
-    }
-
-    .player-muted {
-        opacity: 0.75;
-    }
-
-    .player-stat-grid {
-        display: grid;
-        grid-template-columns: minmax(120px, 1fr) minmax(0, 2fr);
-        gap: 0.9rem 1rem;
-        align-items: center;
-    }
-
-    .player-stat-grid span {
-        opacity: 0.7;
-    }
-
-    .player-stat-grid strong {
-        min-width: 0;
-        overflow-wrap: anywhere;
-        font-variant-numeric: tabular-nums;
-    }
-</style>
+</div>
 
 @code {
     [Parameter]

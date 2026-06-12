@@ -1,242 +1,117 @@
 @inherits LayoutComponentBase
-@using MudBlazor
+@implements IDisposable
+@using Chessss.Components.Common
 @using Chessss.Models
+@using Chessss.Services
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Identity
+@using MudBlazor
 @inject UserManager<ApplicationUser> UserManager
+@inject UserProfileChangeNotifier ProfileNotifier
 
-<MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="_myTheme" />
+<MudThemeProvider @bind-IsDarkMode="_isDarkMode" Theme="_theme" />
 <MudDialogProvider />
 <MudSnackbarProvider />
 <MudPopoverProvider />
 
-<MudLayout Style="overflow: hidden;">
-    <MudDrawer Open="true"
-               Variant="DrawerVariant.Persistent"
-               Class="@(_isMini ? "sb-mini" : "sb-full")"
-               Style="@($"background-color: {(_isDarkMode ? "#1a1a1a" : "#ffffff")}; border-right: 1px solid {(_isDarkMode ? "#333" : "#e0e0e0")}; transition: 0.3s;")">
+<div class="app-shell @(_isMini ? "sidebar-collapsed" : "sidebar-expanded")" style="@BuildShellStyle()">
+    <aside class="sidebar">
+        <div class="sidebar__top">
+            <button type="button" class="sidebar-brand" @onclick='() => Nav.NavigateTo("/")'>
+                <span class="sidebar-brand__mark">
+                    <img src="/images/logo.png" alt="UltraChess" class="sidebar-brand__logo" />
+                </span>
 
-        <div class="d-flex flex-column h-100">
-            <div class="pa-4 d-flex align-center justify-space-between" style="height: 64px;">
-                <div class="d-flex align-center">
-                    <MudAvatar Image="images/logo.png" Size="Size.Medium" @onclick='() => Nav.NavigateTo("/")' Style="cursor:pointer;" />
+                @if (!_isMini)
+                {
+                    <span class="sidebar-brand__copy">
+                        <span class="sidebar-brand__title">UltraChess</span>
+                        <span class="sidebar-brand__subtitle">Играй, анализируй, расти</span>
+                    </span>
+                }
+            </button>
+
+            <MudIconButton Icon="@(_isMini ? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ChevronLeft)"
+                           Size="Size.Small"
+                           Variant="Variant.Text"
+                           Color="Color.Default"
+                           Class="sidebar-toggle"
+                           OnClick="ToggleDrawer" />
+        </div>
+
+        <nav class="sidebar__nav">
+            <MudNavMenu Class="sidebar-nav">
+                <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Главная</MudNavLink>
+                <MudNavLink Href="/playwithai" Icon="@Icons.Material.Filled.SmartToy">Играть с ИИ</MudNavLink>
+                <MudNavLink Href="/analysis" Icon="@Icons.Material.Filled.Search">Анализ партии</MudNavLink>
+                <MudNavLink Href="/training" Icon="@Icons.Material.Filled.School">Обучение</MudNavLink>
+                <MudNavLink Href="/leaderboard" Icon="@Icons.Material.Filled.Leaderboard">Лидерборд</MudNavLink>
+                <MudNavLink Href="/my-games" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Мои партии</MudNavLink>
+                <MudNavLink Href="/admin/training" Icon="@Icons.Material.Filled.AdminPanelSettings">Админка</MudNavLink>
+            </MudNavMenu>
+        </nav>
+
+        <div class="sidebar__footer">
+            <MudNavLink Href="/feedback" Icon="@Icons.Material.Filled.ChatBubbleOutline" Class="sidebar-feedback">Обратная связь</MudNavLink>
+
+            <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                           Size="Size.Medium"
+                           Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           Class="sidebar-theme-toggle"
+                           OnClick="ToggleTheme" />
+
+            @if (_isAuthenticated)
+            {
+                <div class="sidebar-account profile-card" @onclick='() => Nav.NavigateTo("/profile")'>
+                    <UserAvatar AvatarUrl="@_currentAvatarUrl"
+                                DisplayName="@_accountDisplayName"
+                                AvatarSize="Size.Small"
+                                Class="sidebar-account__avatar" />
+
                     @if (!_isMini)
                     {
-                        <MudText Typo="Typo.h6" Class="ml-3 fw-bold">UltraChess</MudText>
+                        <div class="sidebar-account__copy">
+                            <span class="sidebar-account__name">@_accountDisplayName</span>
+                            <span class="sidebar-account__meta">Профиль</span>
+                        </div>
+                    }
+
+                    <form method="post" action="/logout" class="sidebar-account__logout" @onclick:stopPropagation="true">
+                        <AntiforgeryToken />
+                        <button type="submit" class="logout-button" title="Выйти">
+                            <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Small" />
+                        </button>
+                    </form>
+                </div>
+            }
+            else
+            {
+                <div class="sidebar-account profile-card" @onclick='() => Nav.NavigateTo("/auth")'>
+                    <MudAvatar Variant="Variant.Outlined" Size="Size.Small" Class="sidebar-account__fallback">
+                        <MudIcon Icon="@Icons.Material.Filled.Login" Size="Size.Small" />
+                    </MudAvatar>
+
+                    @if (!_isMini)
+                    {
+                        <div class="sidebar-account__copy">
+                            <span class="sidebar-account__name">Войти</span>
+                            <span class="sidebar-account__meta">Авторизация</span>
+                        </div>
                     }
                 </div>
-                <MudIconButton Icon="@(_isMini ? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ChevronLeft)"
-                               OnClick="ToggleDrawer" Size="Size.Small" />
-            </div>
-
-            <MudNavMenu Class="flex-grow-1 px-2">
-                <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">@(!_isMini ? "Главная" : "")</MudNavLink>
-                <MudNavLink Href="/playwithai" Icon="@Icons.Material.Filled.SmartToy">@(!_isMini ? "Играть с ИИ" : "")</MudNavLink>
-                <MudNavLink Href="/analysis" Icon="@Icons.Material.Filled.SmartToy">@(!_isMini ? "Анализ партии" : "")</MudNavLink>
-                <MudNavLink Href="/training" Icon="@Icons.Material.Filled.School">@(!_isMini ? "Обучение" : "")</MudNavLink>
-                <MudNavLink Href="/admin/training" Icon="@Icons.Material.Filled.AdminPanelSettings">Админка</MudNavLink>
-                <MudNavLink Href="/leaderboard" Icon="@Icons.Material.Filled.Leaderboard">@(!_isMini ? "Таблица лидеров" : "")</MudNavLink>
-                <MudNavLink Href="/my-games" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Мои партии</MudNavLink>
-            </MudNavMenu>
-
-            <div class="pa-2 d-flex flex-column align-center" style="border-top: 1px solid rgba(128,128,128,0.2);">
-                <MudNavLink Href="/feedback" Icon="@Icons.Material.Filled.ChatBubbleOutline" Class="w-100">@(!_isMini ? "Feedback" : "")</MudNavLink>
-
-                <div class="my-3 cursor-pointer" @onclick="ToggleTheme">
-                    <img src="@(_isDarkMode ? "images/light.png" : "images/dark.png")" style="width:30px; height:30px;" />
-                </div>
-
-                @if (_isAuthenticated)
-                {
-                    <div class="profile-card profile-link d-flex align-center pa-2 w-100" @onclick='() => Nav.NavigateTo("/profile")'>
-                        <MudAvatar Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small">
-                            <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
-                        </MudAvatar>
-
-                        @if (!_isMini)
-                        {
-                            <MudText Typo="Typo.body2" Class="ml-3 account-name">@_accountDisplayName</MudText>
-                        }
-
-                        <form method="post" action="/logout" class="@(_isMini ? "logout-form-mini" : "logout-form")" @onclick:stopPropagation="true">
-                            <AntiforgeryToken />
-                            <button type="submit" class="logout-button" title="Выйти">
-                                <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Small" />
-                            </button>
-                        </form>
-                    </div>
-                }
-                else
-                {
-                    <div class="profile-card profile-link d-flex align-center pa-2 w-100" @onclick='() => Nav.NavigateTo("/auth")'>
-                        <MudAvatar Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small">
-                            <MudIcon Icon="@Icons.Material.Filled.Login" Size="Size.Small" />
-                        </MudAvatar>
-
-                        @if (!_isMini)
-                        {
-                            <MudText Typo="Typo.body2" Class="ml-3">Войти</MudText>
-                        }
-                    </div>
-                }
-            </div>
+            }
         </div>
-    </MudDrawer>
+    </aside>
 
-    <MudMainContent Class="@(_isMini ? "main-mini" : "main-full")"
-                    Style="@($"background-color: {(_isDarkMode ? "#121212" : "#f5f5f5")}; min-height: 100vh; transition: 0.3s;")">
+    <main class="app-main">
         <div class="page-container">
             <CascadingValue Value="_isDarkMode">
                 @Body
             </CascadingValue>
         </div>
-    </MudMainContent>
-</MudLayout>
-
-<style>
-    :root {
-        --sb-width-full: 260px;
-        --sb-width-mini: 80px;
-        --transition-speed: 0.3s;
-    }
-
-    ::deep html, ::deep body {
-        margin: 0;
-        padding: 0;
-        overflow-x: hidden;
-        width: 100%;
-    }
-
-    .sb-full {
-        width: var(--sb-width-full) !important;
-        transition: width var(--transition-speed) ease;
-    }
-
-    .sb-mini {
-        width: var(--sb-width-mini) !important;
-        transition: width var(--transition-speed) ease;
-        overflow-x: hidden;
-    }
-
-    .sb-container {
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-        border-right: 1px solid rgba(128, 128, 128, 0.2);
-        overflow-x: hidden;
-    }
-
-    .sb-header {
-        height: 64px;
-        border-bottom: 1px solid rgba(128, 128, 128, 0.1);
-        flex-shrink: 0;
-    }
-
-    .sb-footer {
-        border-top: 1px solid rgba(128, 128, 128, 0.1);
-        flex-shrink: 0;
-    }
-
-    .sb-mini .mud-nav-link-text,
-    .sb-mini .nav-text,
-    .sb-mini .mud-text {
-        display: none !important;
-    }
-
-    .sb-mini .mud-nav-link {
-        justify-content: center !important;
-        padding: 12px 0;
-    }
-
-    .sb-mini .mud-nav-link-icon {
-        margin-right: 0 !important;
-    }
-
-    .sb-mini .logo-container,
-    .sb-mini .profile-card,
-    .sb-mini .theme-btn {
-        justify-content: center !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-    }
-
-    .theme-btn img {
-        width: 35px;
-        height: 35px;
-        cursor: pointer;
-        transition: transform 0.2s ease;
-    }
-
-    .theme-btn img:hover {
-        transform: scale(1.1);
-    }
-
-    .profile-card {
-        background: rgba(128, 128, 128, 0.1);
-        border-radius: 12px;
-        transition: background 0.2s;
-    }
-
-    .profile-link {
-        cursor: pointer;
-    }
-
-    .profile-card:hover {
-        background: rgba(128, 128, 128, 0.2);
-    }
-
-    .account-name {
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .logout-form {
-        margin-left: auto;
-        display: flex;
-        align-items: center;
-    }
-
-    .logout-form-mini {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .logout-button {
-        width: 32px;
-        height: 32px;
-        border: 0;
-        border-radius: 50%;
-        background: transparent;
-        color: inherit;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-    }
-
-    .logout-button:hover {
-        background: rgba(128, 128, 128, 0.2);
-    }
-
-    .no-select {
-        user-select: none;
-    }
-
-    .main-full {
-        margin-left: var(--sb-width-full) !important;
-        width: calc(100% - var(--sb-width-full)) !important;
-        transition: all var(--transition-speed) ease;
-    }
-
-    .main-mini {
-        margin-left: var(--sb-width-mini) !important;
-        width: calc(100% - var(--sb-width-mini)) !important;
-        transition: all var(--transition-speed) ease;
-    }
-</style>
+    </main>
+</div>
 
 @code {
     [CascadingParameter]
@@ -245,20 +120,72 @@
     [Inject]
     private NavigationManager Nav { get; set; } = default!;
 
-    private bool _isMini = false;
+    private bool _isMini;
     private bool _isDarkMode = true;
     private bool _isAuthenticated;
+    private ApplicationUser? _currentUser;
     private string _accountDisplayName = "Войти";
+    private string? _currentAvatarUrl;
 
-    private void ToggleDrawer() => _isMini = !_isMini;
-
-    private void ToggleTheme()
+    private readonly MudTheme _theme = new()
     {
-        _isDarkMode = !_isDarkMode;
-        StateHasChanged();
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#2F6F5E",
+            Secondary = "#B08D57",
+            Tertiary = "#4E7A9A",
+            Success = "#2F6F5E",
+            Warning = "#C28A32",
+            Background = "#F6F3EC",
+            Surface = "#FFFDF8",
+            DrawerBackground = "#FFFCF5",
+            AppbarBackground = "#FFFDF8",
+            TextPrimary = "#1F2937",
+            TextSecondary = "#5F6B7A",
+            LinesDefault = "rgba(71, 85, 105, 0.16)"
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#7CC9B8",
+            Secondary = "#D9B06A",
+            Tertiary = "#7FB6E6",
+            Success = "#7CC9B8",
+            Warning = "#E8B967",
+            Background = "#0F172A",
+            Surface = "#172033",
+            DrawerBackground = "#121A2B",
+            AppbarBackground = "#172033",
+            TextPrimary = "#ECF2FF",
+            TextSecondary = "#AAB6CC",
+            LinesDefault = "rgba(148, 163, 184, 0.18)"
+        }
+    };
+
+    protected override void OnInitialized()
+    {
+        ProfileNotifier.Changed += HandleProfileChangedAsync;
     }
 
     protected override async Task OnParametersSetAsync()
+    {
+        await LoadCurrentUserAsync();
+    }
+
+    private async Task HandleProfileChangedAsync(string userId)
+    {
+        if (_currentUser is null || !string.Equals(_currentUser.Id, userId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        await InvokeAsync(async () =>
+        {
+            await LoadCurrentUserAsync();
+            StateHasChanged();
+        });
+    }
+
+    private async Task LoadCurrentUserAsync()
     {
         if (AuthenticationStateTask is null)
         {
@@ -275,23 +202,46 @@
             return;
         }
 
+        _currentUser = await UserManager.GetUserAsync(principal);
+
+        if (_currentUser is null)
+        {
+            SetAnonymousAccountState();
+            return;
+        }
+
         _isAuthenticated = true;
-        var user = await UserManager.GetUserAsync(principal);
-        var email = user?.Email ?? principal.Identity?.Name ?? "";
-        _accountDisplayName = GetDisplayName(user?.Nickname, email);
+        _accountDisplayName = GetDisplayName(_currentUser.Nickname, _currentUser.Email ?? principal.Identity?.Name);
+        _currentAvatarUrl = _currentUser.AvatarUrl;
     }
+
+    private void ToggleDrawer() => _isMini = !_isMini;
+
+    private void ToggleTheme() => _isDarkMode = !_isDarkMode;
 
     private void SetAnonymousAccountState()
     {
         _isAuthenticated = false;
+        _currentUser = null;
+        _currentAvatarUrl = null;
         _accountDisplayName = "Войти";
+    }
+
+    private string BuildShellStyle()
+    {
+        if (_isDarkMode)
+        {
+            return "--app-bg:#0f172a;--app-surface:#172033;--app-surface-2:#1d2840;--app-text:#ecf2ff;--app-muted:#aab6cc;--app-border:rgba(148,163,184,.18);--app-accent:#d9b06a;--app-accent-2:#7cc9b8;--sidebar-bg:#121a2b;--sidebar-width:260px;--sidebar-width-mini:84px;";
+        }
+
+        return "--app-bg:#f6f3ec;--app-surface:#fffdf8;--app-surface-2:#f0ebe2;--app-text:#1f2937;--app-muted:#5f6b7a;--app-border:rgba(71,85,105,.16);--app-accent:#2f6f5e;--app-accent-2:#b08d57;--sidebar-bg:#fffcf5;--sidebar-width:260px;--sidebar-width-mini:84px;";
     }
 
     private static string GetDisplayName(string? nickname, string? email)
     {
         if (!string.IsNullOrWhiteSpace(nickname))
         {
-            return nickname;
+            return nickname.Trim();
         }
 
         if (!string.IsNullOrWhiteSpace(email))
@@ -303,17 +253,8 @@
         return "Аккаунт";
     }
 
-    private MudTheme _myTheme = new MudTheme()
+    public void Dispose()
     {
-        PaletteLight = new PaletteLight()
-        {
-            Primary = "#2E7D32",
-            Success = "#2E7D32",
-        },
-        PaletteDark = new PaletteDark()
-        {
-            Primary = "#4ADE80",
-            Success = "#4ADE80",
-        }
-    };
+        ProfileNotifier.Changed -= HandleProfileChangedAsync;
+    }
 }

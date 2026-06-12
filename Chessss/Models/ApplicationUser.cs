@@ -12,6 +12,8 @@ namespace Chessss.Models
         public int Wins { get; set; }
         public int Losses { get; set; }
         public int Draws { get; set; }
+        public string? AvatarUrl { get; set; }
+        public int? MaxAIDifficultyBeaten { get; set; }
         public DateTime RegisteredAt { get; set; } = DateTime.UtcNow;
         // Сохраненный уровень сложности ИИ для данного пользователя
         public int? PreferredAIDifficulty { get; set; }

@@ -8,6 +8,34 @@ window.chessBridge = {
     resizeObserver: null,
     squareClickHandler: null,
     difficulty: 6,
+    difficultyProfiles: [
+        { level: 1,  elo: 1360, skillLevel: 0,  movetime: 250,  label: 'Новичок' },
+        { level: 2,  elo: 1440, skillLevel: 1,  movetime: 300,  label: 'Начинающий' },
+        { level: 3,  elo: 1520, skillLevel: 2,  movetime: 350,  label: 'Ученик' },
+        { level: 4,  elo: 1600, skillLevel: 3,  movetime: 400,  label: 'Любитель' },
+        { level: 5,  elo: 1680, skillLevel: 4,  movetime: 450,  label: 'Крепкий любитель' },
+        { level: 6,  elo: 1760, skillLevel: 5,  movetime: 500,  label: 'Практика' },
+        { level: 7,  elo: 1840, skillLevel: 6,  movetime: 550,  label: 'Уверенный' },
+        { level: 8,  elo: 1920, skillLevel: 7,  movetime: 600,  label: 'Клубный' },
+        { level: 9,  elo: 2000, skillLevel: 8,  movetime: 700,  label: 'Тактик' },
+        { level: 10, elo: 2080, skillLevel: 9,  movetime: 800,  label: 'Сильный' },
+        { level: 11, elo: 2160, skillLevel: 10, movetime: 900,  label: 'Опытный' },
+        { level: 12, elo: 2240, skillLevel: 11, movetime: 1000, label: 'Продвинутый' },
+        { level: 13, elo: 2320, skillLevel: 12, movetime: 1100, label: 'Кандидатский' },
+        { level: 14, elo: 2400, skillLevel: 13, movetime: 1250, label: 'Эксперт' },
+        { level: 15, elo: 2480, skillLevel: 14, movetime: 1400, label: 'Мастерский' },
+        { level: 16, elo: 2580, skillLevel: 15, movetime: 1600, label: 'Очень сильный' },
+        { level: 17, elo: 2720, skillLevel: 16, movetime: 1800, label: 'Полумастер' },
+        { level: 18, elo: 2900, skillLevel: 17, movetime: 2200, label: 'Мастер' },
+        { level: 19, elo: 3070, skillLevel: 18, movetime: 2600, label: 'Гроссмейстер' },
+        { level: 20, elo: 3190, skillLevel: 20, movetime: 3200, label: 'Максимум' }
+    ],
+    engineReady: false,
+    engineListenerCleanup: null,
+    engineInitError: null,
+    engineVariant: null,
+    pendingBotHistoryLength: 0,
+    pendingBotRequestId: 0,
     gameStarted: false,
     aiThinking: false,
     playerColor: 'white',
@@ -16,13 +44,15 @@ window.chessBridge = {
     selectedSquare: null,
     highlightedSquares: [],
 
-    initGame: function (dotNetHelper, boardId, difficulty) {
+    initGame: async function (dotNetHelper, boardId, difficulty, engineKey) {
         this.destroy();
 
         this.dotNetHelper = dotNetHelper;
         this.difficulty = this.normalizeDifficulty(difficulty);
+        this.engineVariant = this.normalizeEngineKey(engineKey);
         this.game = new Chess();
-        this.engine = this.createEngine();
+        this.engineReady = false;
+        this.engineInitError = null;
         this.playerColor = 'white';
         this.gameFinishedByResignation = false;
         this.selectedSquare = null;
@@ -80,17 +110,39 @@ window.chessBridge = {
         window.addEventListener('resize', this.resizeHandler);
 
         this.syncBoardSize();
-        this.notifyState('Выберите сложность, сторону и нажмите "Играть".');
+
+        this.notifyState('Доска готова. Выберите сложность и сторону, затем нажмите "Играть".');
+        return true;
     },
 
-    startNewGame: function (difficulty, requestedSide) {
+    startNewGame: async function (difficulty, requestedSide, engineKey) {
         this.difficulty = this.normalizeDifficulty(difficulty);
         this.aiThinking = false;
+        this.playerColor = this.resolvePlayerColor(requestedSide);
+        this.clearSelection();
+
+        const requestedEngine = this.normalizeEngineKey(engineKey);
+
+        if (!await this.ensureEngine(requestedEngine)) {
+            this.gameStarted = false;
+            return false;
+        }
+
+        try {
+            const profile = await this.configureEngineStrength(this.engine, this.difficulty);
+            this.engine.postMessage('ucinewgame');
+            await window.stockfishRuntime.sendCommandAndWait(this.engine, 'isready', 'readyok', 10000);
+            console.log(`Stockfish difficulty: level=${profile.level}, elo=${profile.elo}, skill=${profile.skillLevel}, movetime=${profile.movetime}`);
+        } catch (error) {
+            this.gameStarted = false;
+            this.notifyState('Stockfish не отвечает. Игра против ИИ недоступна.');
+            console.error('Unable to prepare Stockfish for a new game.', error);
+            return false;
+        }
+
         this.gameStarted = true;
         this.gameFinishedByResignation = false;
         this.botRequestId++;
-        this.playerColor = this.resolvePlayerColor(requestedSide);
-        this.clearSelection();
 
         if (!this.game) {
             this.game = new Chess();
@@ -110,6 +162,8 @@ window.chessBridge = {
         if (this.playerColor === 'black') {
             this.queueAiMove(300);
         }
+
+        return true;
     },
 
     prepareForNewGame: function () {
@@ -134,6 +188,73 @@ window.chessBridge = {
         this.notifyState('Выберите сложность, сторону и нажмите "Играть".');
     },
 
+    normalizeEngineKey: function () {
+        return 'stockfish18Lite';
+    },
+
+    getDifficultyProfile: function (difficulty) {
+        const level = this.normalizeDifficulty(difficulty);
+        return this.difficultyProfiles.find(x => x.level === level) || this.difficultyProfiles[5];
+    },
+
+    configureEngineStrength: async function (engine, difficulty) {
+        const profile = this.getDifficultyProfile(difficulty);
+
+        engine.postMessage('setoption name UCI_LimitStrength value true');
+        engine.postMessage('setoption name UCI_Elo value ' + profile.elo);
+        engine.postMessage('setoption name Skill Level value ' + profile.skillLevel);
+
+        await window.stockfishRuntime.sendCommandAndWait(engine, 'isready', 'readyok', 10000);
+        return profile;
+    },
+
+    ensureEngine: async function (engineKey) {
+        const normalizedEngineKey = this.normalizeEngineKey(engineKey);
+
+        if (this.engine && this.engineReady && this.engineVariant === normalizedEngineKey) {
+            return true;
+        }
+
+        if (this.engineListenerCleanup) {
+            try {
+                this.engineListenerCleanup();
+            } catch {
+            }
+
+            this.engineListenerCleanup = null;
+        }
+
+        if (this.engine) {
+            try {
+                window.stockfishRuntime.stopEngine(this.engine);
+            } catch (error) {
+                console.warn('Unable to stop Stockfish.', error);
+            }
+        }
+
+        this.engine = null;
+        this.engineReady = false;
+        this.engineInitError = null;
+        this.engineVariant = normalizedEngineKey;
+
+        try {
+            this.engine = await window.stockfishRuntime.createEngine({ engineKey: normalizedEngineKey });
+            this.engineReady = true;
+            this.engineListenerCleanup = window.stockfishRuntime.attachListener(this.engine, (message) => {
+                this.handleEngineMessage(message);
+            });
+            this.engineInitError = null;
+            return true;
+        } catch (error) {
+            this.engine = null;
+            this.engineReady = false;
+            this.engineInitError = error?.message || 'Stockfish не загрузился.';
+            this.notifyState('Stockfish 18 Lite не загрузился. Проверьте файлы движка и консоль браузера.');
+            console.error('Unable to initialize Stockfish.', error);
+            return false;
+        }
+    },
+
     resignGame: function () {
         if (!this.gameStarted || this.isGameOver()) {
             return;
@@ -148,6 +269,12 @@ window.chessBridge = {
 
     queueAiMove: function (delay) {
         if (!this.gameStarted || !this.game || this.isGameOver()) {
+            return;
+        }
+
+        if (!this.engine || !this.engineReady) {
+            this.aiThinking = false;
+            this.notifyState('Stockfish не загружен. Игра против ИИ недоступна.');
             return;
         }
 
@@ -172,40 +299,25 @@ window.chessBridge = {
 
         const requestedHistoryLength = this.game.history().length;
         const requestId = ++this.botRequestId;
+        this.pendingBotHistoryLength = requestedHistoryLength;
+        this.pendingBotRequestId = requestId;
 
-        if (this.engine) {
-            this.engine.onmessage = (event) => {
-                const line = typeof event === 'string' ? event : event?.data;
-
-                if (!line || !line.startsWith('bestmove')) {
-                    return;
-                }
-
-                const bestMove = line.split(' ')[1];
-
-                if (!this.isLatestBotRequest(requestedHistoryLength, requestId)) {
-                    return;
-                }
-
-                if (!bestMove || bestMove === '(none)') {
-                    this.aiThinking = false;
-                    this.notifyState();
-                    return;
-                }
-
-                this.applyEngineMove(bestMove);
-            };
-
+        if (this.engine && this.engineReady) {
             try {
+                const profile = this.getDifficultyProfile(this.difficulty);
                 this.engine.postMessage('position fen ' + this.game.fen());
-                this.engine.postMessage('go depth ' + this.difficulty);
+                this.engine.postMessage('go movetime ' + profile.movetime);
                 return;
             } catch (error) {
-                console.warn('Stockfish unavailable, falling back to simple bot.', error);
+                console.error('Stockfish search failed.', error);
+                this.aiThinking = false;
+                this.notifyState('Stockfish не смог выполнить поиск. Игра недоступна.');
+                return;
             }
         }
 
-        this.applySimpleBotMove(requestedHistoryLength, requestId);
+        this.aiThinking = false;
+        this.notifyState('Stockfish не загружен. Игра против ИИ недоступна.');
     },
 
     applyEngineMove: function (bestMove) {
@@ -231,34 +343,31 @@ window.chessBridge = {
         this.notifyState();
     },
 
-    applySimpleBotMove: function (requestedHistoryLength, requestId) {
-        const possibleMoves = this.game.moves({ verbose: true });
-        const botMove = window.simpleBot
-            ? window.simpleBot.generateMove(this.game, possibleMoves, this.difficulty)
-            : null;
+    applySimpleBotMove: function () {
+        this.aiThinking = false;
+        this.notifyState('Запасной бот отключён. Дождитесь запуска Stockfish или обновите страницу.');
+    },
 
-        if (!botMove) {
-            this.aiThinking = false;
-            this.notifyState('Для ИИ не нашлось хода. Нажмите "Заново".');
+    handleEngineMessage: function (message) {
+        const line = window.stockfishRuntime.normalizeLine(message);
+
+        if (!line || !line.startsWith('bestmove')) {
             return;
         }
 
-        window.setTimeout(() => {
-            if (!this.isLatestBotRequest(requestedHistoryLength, requestId)) {
-                return;
-            }
+        const bestMove = line.split(' ')[1];
 
-            this.game.move({
-                from: botMove.from,
-                to: botMove.to,
-                promotion: botMove.promotion || 'q'
-            });
+        if (!this.isLatestBotRequest(this.pendingBotHistoryLength, this.pendingBotRequestId)) {
+            return;
+        }
 
+        if (!bestMove || bestMove === '(none)') {
             this.aiThinking = false;
-            this.clearSelection();
-            this.syncBoard();
-            this.notifyState();
-        }, 200);
+            this.notifyState('Stockfish не нашёл ход.');
+            return;
+        }
+
+        this.applyEngineMove(bestMove);
     },
 
     tryPlayerMove: function (source, target) {
@@ -601,21 +710,6 @@ window.chessBridge = {
         }
     },
 
-    createEngine: function () {
-        if (typeof Stockfish === 'undefined') {
-            return null;
-        }
-
-        try {
-            const engine = Stockfish();
-            engine.postMessage('uci');
-            return engine;
-        } catch (error) {
-            console.warn('Unable to create Stockfish instance.', error);
-            return null;
-        }
-    },
-
     isLatestBotRequest: function (requestedHistoryLength, requestId) {
         return this.gameStarted
             && this.game
@@ -695,7 +789,12 @@ window.chessBridge = {
 
         if (this.engine) {
             try {
-                this.engine.postMessage('quit');
+                if (this.engineListenerCleanup) {
+                    this.engineListenerCleanup();
+                    this.engineListenerCleanup = null;
+                }
+
+                window.stockfishRuntime.stopEngine(this.engine);
             } catch (error) {
                 console.warn('Unable to stop Stockfish.', error);
             }
@@ -715,6 +814,12 @@ window.chessBridge = {
         this.dotNetHelper = null;
         this.boardElement = null;
         this.squareClickHandler = null;
+        this.engine = null;
+        this.engineReady = false;
+        this.engineInitError = null;
+        this.engineVariant = null;
+        this.pendingBotHistoryLength = 0;
+        this.pendingBotRequestId = 0;
         this.gameStarted = false;
         this.aiThinking = false;
         this.playerColor = 'white';

@@ -7,12 +7,12 @@
 
 <PageTitle>UltraChess - Обратная связь</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Small" Class="mt-10">
-    <MudPaper Class="pa-8 rounded-xl" Elevation="4">
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-10 page-shell">
+    <MudPaper Class="form-panel" Elevation="0">
         <MudStack AlignItems="AlignItems.Center" Class="mb-6">
             <MudIcon Icon="@Icons.Material.Filled.Email" Color="Color.Primary" Size="Size.Large" />
             <MudText Typo="Typo.h4">Ваш отзыв</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Surface">Помогите нам стать лучше!</MudText>
+            <MudText Typo="Typo.body2" Class="feedback-muted">Помогите нам стать лучше!</MudText>
         </MudStack>
 
         <EditForm Model="@_feedbackModel" OnValidSubmit="HandleSubmit">
@@ -35,6 +35,12 @@
         </EditForm>
     </MudPaper>
 </MudContainer>
+
+<style>
+    .feedback-muted {
+        color: var(--app-muted);
+    }
+</style>
 
 @code {
     // Используем полное имя, чтобы отличить модель от страницы

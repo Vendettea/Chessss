@@ -1,18 +1,17 @@
-﻿@page "/training"
+@page "/training"
 @rendermode InteractiveServer
-@using MudBlazor
-@using Chessss.Models
-@using Chessss.Data
 @using Chessss.Components.Admin
+@using Chessss.Data
+@using Chessss.Models
 @using Microsoft.EntityFrameworkCore
+@using MudBlazor
 @inject ApplicationDbContext Db
 @inject IDialogService DialogService
 
-<PageTitle>UltraChess - Гайдики</PageTitle>
+<PageTitle>UltraChess - Гайды</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="mt-12">
-
-    <MudPaper Class="pa-6 mb-8" Elevation="3">
+<div class="page-shell training-page">
+    <MudPaper Class="form-panel app-card mb-4" Elevation="0">
         <MudTextField T="string"
                       Placeholder="Поиск по названию..."
                       Adornment="Adornment.Start"
@@ -22,7 +21,6 @@
                       ValueChanged="OnSearchChanged"
                       Immediate="true" />
 
-        @* Выбор тегов (Мульти-выбор) *@
         <MudSelect T="string" MultiSelection="true" Label="Фильтр по тегам" SelectedValuesChanged="OnTagsSelected" Variant="Variant.Outlined">
             @foreach (var tag in _allTagNames)
             {
@@ -31,54 +29,134 @@
         </MudSelect>
     </MudPaper>
 
-    <div style="display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding: 8px; height: 700px;">
+    <div class="training-list">
         @foreach (var material in _filteredMaterials)
         {
-            <MudCard Elevation="2" Class="rounded-lg training-card" Style="transition: all 0.3s ease; cursor: pointer; overflow: hidden; flex-shrink: 0;">
-                <div style="display: flex; height: 220px;">
-                    @* Левая часть - Картинка *@
-                    <div class="training-card-image" style="width: 260px; min-width: 260px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; border-radius: 8px 0 0 8px; position: relative; overflow: hidden;">
-                        @if (!string.IsNullOrEmpty(material.ImageUrl))
-                        {
-                            <img src="@material.ImageUrl" 
-                                 style="width: 100%; height: 100%; object-fit: cover;" 
-                                 alt="@material.Title"
-                                 onload="this.style.display='block'; this.parentElement.querySelector('.fallback-icon').style.display='none';"
-                                 onerror="this.style.display='none'; this.parentElement.querySelector('.fallback-icon').style.display='flex';" />
-                            <MudIcon Icon="@Icons.Material.Filled.School" Class="fallback-icon" Style="font-size: 80px; color: white; opacity: 0.8; position: absolute; z-index: 2; display: none;" />
-                        }
-                        else
-                        {
-                            <MudIcon Icon="@Icons.Material.Filled.School" Class="fallback-icon" Style="font-size: 80px; color: white; opacity: 0.8; position: absolute; z-index: 2; display: flex;" />
-                        }
-                        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.1); border-radius: 8px 0 0 8px;"></div>
+            <MudCard Elevation="0" Class="training-card app-card training-list__item">
+                <div class="training-list__media training-card-image">
+                    @if (!string.IsNullOrEmpty(material.ImageUrl))
+                    {
+                        <img src="@material.ImageUrl"
+                             class="training-list__image"
+                             alt="@material.Title"
+                             onload="this.style.display='block'; this.parentElement.querySelector('.fallback-icon').style.display='none';"
+                             onerror="this.style.display='none'; this.parentElement.querySelector('.fallback-icon').style.display='flex';" />
+                        <MudIcon Icon="@Icons.Material.Filled.School" Class="fallback-icon training-list__fallback" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.School" Class="fallback-icon training-list__fallback training-list__fallback--visible" />
+                    }
+                    <div class="training-list__overlay"></div>
+                </div>
+
+                <div class="training-list__body">
+                    <div>
+                        <MudText Typo="Typo.h6" Class="mb-2 training-list__title">@material.Title</MudText>
+
+                        <div class="mb-3">
+                            @foreach (var tag in material.Tags)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined" Class="mr-1 mb-1">@tag.Name</MudChip>
+                            }
+                        </div>
+
+                        <MudText Typo="Typo.body2" Class="text-truncate-3 training-list__description">@material.Description</MudText>
                     </div>
 
-                    @* Правая часть - Контент *@
-                    <div style="flex: 1; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
-                        <div>
-                            <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600;">@material.Title</MudText>
-
-                            <div class="mb-3">
-                                @foreach (var tag in material.Tags)
-                                {
-                                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined" Class="mr-1 mb-1">@tag.Name</MudChip>
-                                }
-                            </div>
-
-                            <MudText Typo="Typo.body2" Class="text-truncate-3" Style="color: rgba(0,0,0,0.6);">@material.Description</MudText>
-                        </div>
-
-                        <div Class="mt-4" style="display: flex; gap: 8px;">
-                            <MudButton Variant="Variant.Filled" Color="Color.Success" Href="@($"/training/{material.Id}")" Size="Size.Small">ИЗУЧИТЬ ГАЙД</MudButton>
-                        </div>
+                    <div class="training-list__actions">
+                        <MudButton Variant="Variant.Filled" Color="Color.Success" Href="@($"/training/{material.Id}")" Size="Size.Small">
+                            Изучить гайд
+                        </MudButton>
                     </div>
                 </div>
             </MudCard>
         }
     </div>
+</div>
 
-</MudContainer>
+<style>
+    .training-page {
+        padding-block: 1rem 1.5rem;
+    }
+
+    .training-list {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .training-list__item {
+        display: grid;
+        grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+        overflow: hidden;
+    }
+
+    .training-list__media {
+        min-height: 14rem;
+        background: linear-gradient(135deg, color-mix(in srgb, var(--app-accent-2) 70%, #23334d), color-mix(in srgb, var(--app-accent) 80%, #182235));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+
+    .training-list__image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .training-list__fallback {
+        font-size: 4rem;
+        color: white;
+        opacity: 0.85;
+        position: absolute;
+        z-index: 2;
+        display: none;
+    }
+
+    .training-list__fallback--visible {
+        display: flex;
+    }
+
+    .training-list__overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.12);
+    }
+
+    .training-list__body {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1.2rem;
+    }
+
+    .training-list__title {
+        font-weight: 700;
+    }
+
+    .training-list__description {
+        color: var(--app-muted);
+    }
+
+    .training-list__actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    @@media (max-width: 860px) {
+        .training-list__item {
+            grid-template-columns: 1fr;
+        }
+
+        .training-list__media {
+            min-height: 12rem;
+        }
+    }
+</style>
 
 @code {
     private string _searchString = "";
@@ -111,13 +189,11 @@
     {
         var query = _allMaterials.AsEnumerable();
 
-        // Фильтр по строке поиска
         if (!string.IsNullOrWhiteSpace(_searchString))
         {
             query = query.Where(m => m.Title.Contains(_searchString, StringComparison.OrdinalIgnoreCase));
         }
 
-        // Фильтр по тегам: если выбраны теги, показываем те гайды, где есть ХОТЯ БЫ ОДИН выбранный тег
         if (_selectedTagNames != null && _selectedTagNames.Any())
         {
             query = query.Where(m => m.Tags.Any(t => _selectedTagNames.Contains(t.Name)));

@@ -1,6 +1,7 @@
 @page "/playwithai"
 @rendermode InteractiveServer
 @using System.Security.Claims
+@using Chessss.Components.Common
 @using Chessss.Models
 @using Chessss.Services
 @using Microsoft.AspNetCore.Components.Authorization
@@ -8,6 +9,7 @@
 @inject IJSRuntime JS
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject UserManager<ApplicationUser> UserManager
+@inject UserProfileChangeNotifier ProfileNotifier
 @inject Chessss.Services.UserDifficultyService UserDifficultyService
 @inject Chessss.Services.GameResultService GameResults
 @inject Chessss.Services.UserGameService UserGames
@@ -16,9 +18,9 @@
 
 <PageTitle>UltraChess - Игра с ИИ</PageTitle>
 
-<div class="play-ai-page">
+<div class="play-ai-page page-shell">
     <div class="play-ai-stage">
-        <div class="play-ai-layout">
+        <div class="play-ai-layout chess-layout">
             <section class="play-ai-board-area" aria-label="Шахматная доска">
                 <div class="play-ai-board-column">
                     <div class="play-ai-player-strip play-ai-player-strip-top">
@@ -32,16 +34,16 @@
                         </div>
                     </div>
 
-                    <div class="play-ai-board-shell" style="position: relative;">
+                    <div class="play-ai-board-shell chess-board-panel">
                         <div id="chessBoard" class="play-ai-board"></div>
 
                         @if (_showPromotionDialog)
                         {
-                            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.6); z-index: 100; border-radius: 22px; backdrop-filter: blur(2px);">
-                                <div style="background: var(--mud-palette-surface); padding: 1.5rem; border-radius: 16px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); text-align: center; border: 1px solid var(--play-ai-border);">
-                                    <h3 style="margin-top: 0; margin-bottom: 1rem; font-weight: 600; font-size: 1.2rem;">Выберите фигуру</h3>
+                            <div class="play-ai-promotion-overlay">
+                                <div class="play-ai-promotion-dialog">
+                                    <h3 class="play-ai-promotion-title">Выберите фигуру</h3>
                                     @{ var colorPrefix = _playerColor == "black" ? "b" : "w"; }
-                                    <div style="display: flex; gap: 12px; justify-content: center;">
+                                    <div class="play-ai-promotion-grid">
                                         <div class="promotion-piece" @onclick='() => OnPromotionPieceSelected("q")'>
                                             <img src="/img/chesspieces/wikipedia/@(colorPrefix)Q.png" alt="Ферзь" title="Ферзь" />
                                         </div>
@@ -62,9 +64,10 @@
 
                     <div class="play-ai-board-footer">
                         <div class="play-ai-player-strip play-ai-player-strip-bottom">
-                            <MudAvatar Color="Color.Default" Variant="Variant.Outlined" Size="Size.Medium" Class="play-ai-avatar">
-                                <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Medium" />
-                            </MudAvatar>
+                            <UserAvatar AvatarUrl="@_currentUserAvatarUrl"
+                                        DisplayName="@_currentUserDisplayName"
+                                        AvatarSize="Size.Medium"
+                                        Class="play-ai-avatar" />
 
                             <div class="play-ai-player-copy">
                                 <div class="play-ai-player-name">@_currentUserDisplayName</div>
@@ -80,7 +83,7 @@
                 </div>
             </section>
 
-            <aside class="play-ai-side-panel" aria-label="Панель партии">
+            <aside class="play-ai-side-panel chess-side-panel" aria-label="Панель партии">
                 @if (IsSetupState)
                 {
                     <div class="play-ai-panel-content play-ai-start-panel">
@@ -96,9 +99,11 @@
                                    Variant="Variant.Outlined"
                                    Dense="true"
                                    @bind-Value="_selectedDifficulty">
-                            @foreach (var level in DifficultyLevels)
+                            @foreach (var option in DifficultyOptions)
                             {
-                                <MudSelectItem T="int" Value="@level">Уровень @level</MudSelectItem>
+                                <MudSelectItem T="int" Value="@option.Level">
+                                    Уровень @option.Level — @option.Name
+                                </MudSelectItem>
                             }
                         </MudSelect>
 
@@ -106,6 +111,15 @@
                             <MudText Typo="Typo.subtitle2">@GetDifficultyLabel(_selectedDifficulty)</MudText>
                             <MudText Typo="Typo.body2">@GetDifficultyDescription(_selectedDifficulty)</MudText>
                         </div>
+
+                        <div class="play-ai-difficulty-card">
+                        <MudText Typo="Typo.subtitle2">Движок</MudText>
+                        <MudText Typo="Typo.body2">Stockfish 18 Lite</MudText>
+                        </div>
+
+                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-3">
+                            @_statusText
+                        </MudAlert>
 
                         <div class="play-ai-control-group">
                             <MudText Typo="Typo.subtitle2">Сторона</MudText>
@@ -233,6 +247,41 @@
 </div>
 
 <style>
+    .play-ai-promotion-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 100;
+        border-radius: 22px;
+        backdrop-filter: blur(2px);
+    }
+
+    .play-ai-promotion-dialog {
+        background: var(--mud-palette-surface);
+        padding: 1.5rem;
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        text-align: center;
+        border: 1px solid var(--play-ai-border);
+    }
+
+    .play-ai-promotion-title {
+        margin: 0 0 1rem;
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+
+    .play-ai-promotion-grid {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
     .promotion-piece {
         width: 64px;
         height: 64px;
@@ -256,18 +305,18 @@
     }
 
     .play-ai-page {
-        --play-ai-border: rgba(255, 255, 255, 0.08);
-        --play-ai-soft: rgba(255, 255, 255, 0.05);
-        --play-ai-soft-strong: rgba(255, 255, 255, 0.08);
-        --play-ai-muted-color: rgba(255, 255, 255, 0.68);
+        --play-ai-border: var(--app-border);
+        --play-ai-soft: color-mix(in srgb, var(--app-surface-2) 74%, transparent);
+        --play-ai-soft-strong: color-mix(in srgb, var(--app-surface-2) 88%, transparent);
+        --play-ai-muted-color: var(--app-muted);
         --play-ai-selected-square: rgba(244, 211, 94, 0.38);
-        --play-ai-move-dot: rgba(255, 255, 255, 0.42);
-        --play-ai-panel-height: clamp(560px, calc(100dvh - 122px), 780px);
-        padding: 0.85rem 1rem 1.5rem;
+        --play-ai-move-dot: color-mix(in srgb, var(--app-accent-2) 62%, white);
+        --play-ai-panel-height: clamp(520px, calc(100dvh - 126px), 760px);
+        padding: 0.5rem 0 1.25rem;
     }
 
     .play-ai-stage {
-        max-width: 1160px;
+        max-width: 1280px;
         margin: 0 auto;
     }
 
@@ -285,7 +334,7 @@
     }
 
     .play-ai-board-column {
-        width: min(100%, 760px);
+        width: min(100%, 760px, max(320px, calc(100dvh - 14rem)));
         margin: 0 auto;
     }
 
@@ -334,6 +383,7 @@
     }
 
     .play-ai-board-shell {
+        position: relative;
         padding: 0.75rem;
         border-radius: 22px;
     }
@@ -433,7 +483,7 @@
         height: var(--play-ai-panel-height);
         max-height: var(--play-ai-panel-height);
         position: sticky;
-        top: 0.85rem;
+        top: 1rem;
     }
 
     .play-ai-panel-content {
@@ -655,7 +705,7 @@
 
     @@media (max-width: 1360px) {
         .play-ai-page {
-            --play-ai-panel-height: clamp(540px, calc(100dvh - 116px), 740px);
+            --play-ai-panel-height: clamp(520px, calc(100dvh - 120px), 720px);
         }
 
         .play-ai-stage {
@@ -693,7 +743,7 @@
 
     @@media (max-width: 720px) {
         .play-ai-page {
-            padding: 0.85rem 0.85rem 1.5rem;
+            padding: 0.35rem 0 1.2rem;
         }
 
         .play-ai-board-shell {
@@ -727,8 +777,32 @@
 
 @code {
     private const int DefaultDifficulty = 6;
+    private const string StockfishEngineKey = "stockfish18Lite";
+    private const string StockfishEngineLabel = "Stockfish 18 Lite";
 
-    private readonly IReadOnlyList<int> DifficultyLevels = Enumerable.Range(1, 20).ToArray();
+    private static readonly IReadOnlyList<DifficultyOption> DifficultyOptions = new[]
+    {
+        new DifficultyOption(1,  "Новичок",          1320, 1399, 1360, 250,  "Самый мягкий режим: ИИ часто ошибается и подходит для первых партий."),
+        new DifficultyOption(2,  "Начинающий",       1400, 1479, 1440, 300,  "ИИ всё ещё играет просто, но уже меньше подставляет фигуры."),
+        new DifficultyOption(3,  "Ученик",           1480, 1559, 1520, 350,  "Подходит для спокойной тренировки базовых ходов и тактики."),
+        new DifficultyOption(4,  "Любитель",         1560, 1639, 1600, 400,  "ИИ начинает видеть простые угрозы и тактические идеи."),
+        new DifficultyOption(5,  "Крепкий любитель", 1640, 1719, 1680, 450,  "Ошибается реже, но всё ещё даёт шанс выиграть материал."),
+        new DifficultyOption(6,  "Практика",         1720, 1799, 1760, 500,  "Комфортный уровень для обычной тренировочной партии."),
+        new DifficultyOption(7,  "Уверенный",        1800, 1879, 1840, 550,  "ИИ лучше защищается и чаще наказывает грубые ошибки."),
+        new DifficultyOption(8,  "Клубный",          1880, 1959, 1920, 600,  "Уже похож на сильного клубного игрока."),
+        new DifficultyOption(9,  "Тактик",           1960, 2039, 2000, 700,  "ИИ начинает стабильно находить тактические удары."),
+        new DifficultyOption(10, "Сильный",          2040, 2119, 2080, 800,  "Середина шкалы: хорошая сложность для серьёзной практики."),
+        new DifficultyOption(11, "Опытный",          2120, 2199, 2160, 900,  "ИИ реже допускает неточности и лучше считает варианты."),
+        new DifficultyOption(12, "Продвинутый",      2200, 2279, 2240, 1000, "Уровень для аккуратной игры без простых ошибок."),
+        new DifficultyOption(13, "Кандидатский",     2280, 2359, 2320, 1100, "ИИ уверенно использует слабости позиции."),
+        new DifficultyOption(14, "Эксперт",          2360, 2439, 2400, 1250, "Сложный режим: требуется точная игра."),
+        new DifficultyOption(15, "Мастерский",       2440, 2519, 2480, 1400, "ИИ почти не прощает потерю темпа и слабые ходы."),
+        new DifficultyOption(16, "Очень сильный",    2520, 2649, 2580, 1600, "Продвинутый уровень для серьёзной проверки."),
+        new DifficultyOption(17, "Полумастер",       2650, 2799, 2720, 1800, "ИИ глубже считает и редко ошибается в тактике."),
+        new DifficultyOption(18, "Мастер",           2800, 2999, 2900, 2200, "Очень сильный режим, близкий к максимальному."),
+        new DifficultyOption(19, "Гроссмейстер",     3000, 3149, 3070, 2600, "Почти максимум: ИИ играет очень точно."),
+        new DifficultyOption(20, "Максимум",         3150, 3190, 3190, 3200, "Максимальная сила Stockfish Lite в этой шкале.")
+    };
     private readonly List<MoveRow> _moveRows = new();
 
     private DotNetObjectReference<PlaywAI>? _objRef;
@@ -738,8 +812,10 @@
     private string _currentFen = "start";
     private string _currentPgn = string.Empty;
     private string _currentUserDisplayName = "Гость";
+    private string? _currentUserAvatarUrl;
+    private string? _currentUserId;
     private string _elapsedTimeText = "00:00";
-    private string _statusText = "Выберите сложность, сторону и нажмите «Играть».";
+    private string _statusText = "Выберите сложность и сторону, затем нажмите «Играть».";
     private string? _resultSaveText;
     private string? _playerColor;
     private string? _recordedTerminalSignature;
@@ -749,6 +825,7 @@
     private Severity _resultSaveSeverity = Severity.Info;
     private int _selectedDifficulty = DefaultDifficulty;
     private int _activeDifficulty = DefaultDifficulty;
+    private string _selectedEngineKey = StockfishEngineKey;
     private int _moveCount;
     private SideChoice _selectedSide = SideChoice.Random;
     private bool _boardReady;
@@ -766,8 +843,14 @@
     private bool IsSetupState => !_gameStarted;
     private bool IsFinishedState => _gameStarted && _gameOver;
 
+    private string GetSelectedEngineDescription()
+    {
+       return StockfishEngineLabel;
+    }
+
     protected override async Task OnInitializedAsync()
     {
+        ProfileNotifier.Changed += HandleProfileChangedAsync;
         _selectedDifficulty = await LoadStoredDifficultyAsync();
         _activeDifficulty = _selectedDifficulty;
         await LoadCurrentUserDisplayAsync();
@@ -778,8 +861,38 @@
         if (firstRender)
         {
             _objRef = DotNetObjectReference.Create(this);
-            await JS.InvokeVoidAsync("chessBridge.initGame", _objRef, "chessBoard", _selectedDifficulty);
-            _boardReady = true;
+
+            try
+            {
+                _selectedEngineKey = StockfishEngineKey;
+
+                _boardReady = await JS.InvokeAsync<bool>(
+                    "chessBridge.initGame",
+                    _objRef,
+                    "chessBoard",
+                    _selectedDifficulty,
+                    StockfishEngineKey
+                );
+
+                if (_boardReady)
+                {
+                    _statusText = "Доска готова. Выберите сложность и сторону, затем нажмите «Играть».";
+                    _statusSeverity = Severity.Info;
+                }
+                else
+                {
+                    _statusText = "Не удалось подготовить шахматную доску.";
+                    _statusSeverity = Severity.Error;
+                }
+            }
+            catch (Exception ex)
+            {
+                _boardReady = false;
+                _statusText = $"Ошибка запуска доски: {ex.Message}";
+                _statusSeverity = Severity.Error;
+            }
+
+            StateHasChanged();
         }
 
         if (_scrollMovesToBottom && _moveCount > 0)
@@ -861,13 +974,28 @@
         _resultRecordingInProgress = false;
         _recordedTerminalSignature = null;
         _scrollMovesToBottom = false;
-        _statusText = "Партия запускается...";
+        _statusText = $"Загружаем {GetSelectedEngineDescription()}...";
         _statusSeverity = Severity.Info;
         _playerColor = ResolveExpectedPlayerColor(_selectedSide);
+        StateHasChanged();
 
         StartGameClock();
         await SaveStoredDifficultyAsync(_activeDifficulty);
-        await JS.InvokeVoidAsync("chessBridge.startNewGame", _activeDifficulty, GetRequestedSide());
+
+        var started = await JS.InvokeAsync<bool>(
+            "chessBridge.startNewGame",
+            _activeDifficulty,
+            GetRequestedSide(),
+            StockfishEngineKey
+        );
+
+        if (!started)
+        {
+            ResetGameClock();
+            _gameStarted = false;
+            _statusText = "Stockfish 18 Lite не загрузился. Проверьте файлы движка и консоль браузера.";
+            _statusSeverity = Severity.Error;
+        }
     }
 
     private async Task ResetToSetupAsync()
@@ -877,7 +1005,7 @@
         _currentFen = "start";
         _currentPgn = string.Empty;
         _resultSaveText = null;
-        _statusText = "Выберите сложность, сторону и нажмите «Играть».";
+        _statusText = "Выберите сложность и сторону, затем нажмите «Играть».";
         _statusSeverity = Severity.Info;
         _resultSaveSeverity = Severity.Info;
         _moveRows.Clear();
@@ -922,18 +1050,38 @@
 
             if (principal.Identity?.IsAuthenticated != true)
             {
+                _currentUserId = null;
                 _currentUserDisplayName = "Гость";
+                _currentUserAvatarUrl = null;
                 return;
             }
 
             var user = await UserManager.GetUserAsync(principal);
             var email = user?.Email ?? principal.Identity?.Name;
+            _currentUserId = user?.Id;
             _currentUserDisplayName = UserProfileRules.GetDisplayName(user?.Nickname, email);
+            _currentUserAvatarUrl = user?.AvatarUrl;
         }
         catch
         {
+            _currentUserId = null;
             _currentUserDisplayName = "Гость";
+            _currentUserAvatarUrl = null;
         }
+    }
+
+    private async Task HandleProfileChangedAsync(string userId)
+    {
+        if (string.IsNullOrWhiteSpace(_currentUserId) || !string.Equals(_currentUserId, userId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        await InvokeAsync(async () =>
+        {
+            await LoadCurrentUserDisplayAsync();
+            StateHasChanged();
+        });
     }
 
     private async Task<int> LoadStoredDifficultyAsync()
@@ -1004,6 +1152,11 @@
 
             if (statsSaved && gameSaved)
             {
+                if (string.Equals(resultCode, "win", StringComparison.OrdinalIgnoreCase))
+                {
+                    await UpdateMaxAIDifficultyBeatenAsync(userId, _activeDifficulty);
+                }
+
                 _resultRecordedForCurrentGame = true;
                 _recordedTerminalSignature = terminalSignature;
                 _resultSaveSeverity = Severity.Success;
@@ -1058,9 +1211,10 @@
             Result = result,
             MoveCount = _moveCount,
             DurationMinutes = CalculateDurationMinutes(),
-            Source = "UltraChess",
-            ExternalId = $"{terminalSignature}|{_gameStartedAtUtc?.UtcDateTime.Ticks ?? 0L}",
-            IsAnalyzed = false,
+                Source = "UltraChess",
+                ExternalId = $"{terminalSignature}|{_gameStartedAtUtc?.UtcDateTime.Ticks ?? 0L}",
+                PlayedAsWhite = !isPlayerBlack,
+                IsAnalyzed = false,
             WhiteAccuracy = null,
             BlackAccuracy = null,
             PgnContent = _currentPgn
@@ -1096,6 +1250,35 @@
             "draw" => "1/2-1/2",
             _ => "*"
         };
+    }
+
+    private async Task UpdateMaxAIDifficultyBeatenAsync(string userId, int difficulty)
+    {
+        try
+        {
+            var user = await UserManager.FindByIdAsync(userId);
+
+            if (user is null)
+            {
+                return;
+            }
+
+            if (user.MaxAIDifficultyBeaten.GetValueOrDefault() >= difficulty)
+            {
+                return;
+            }
+
+            user.MaxAIDifficultyBeaten = difficulty;
+            var updateResult = await UserManager.UpdateAsync(user);
+
+            if (updateResult.Succeeded)
+            {
+                await ProfileNotifier.NotifyAsync(user.Id);
+            }
+        }
+        catch
+        {
+        }
     }
 
     private async Task CopyPgnAsync()
@@ -1339,58 +1522,27 @@
         return Severity.Success;
     }
 
-    private static string GetDifficultyLabel(int difficulty)
+    private static DifficultyOption GetDifficultyOption(int difficulty)
     {
         var normalized = NormalizeDifficulty(difficulty);
+        return DifficultyOptions.FirstOrDefault(x => x.Level == normalized)
+            ?? DifficultyOptions[DefaultDifficulty - 1];
+    }
 
-        if (normalized <= 4)
-        {
-            return $"Уровень {normalized}: лёгкий";
-        }
-
-        if (normalized <= 8)
-        {
-            return $"Уровень {normalized}: уверенный";
-        }
-
-        if (normalized <= 13)
-        {
-            return $"Уровень {normalized}: сильный";
-        }
-
-        if (normalized <= 17)
-        {
-            return $"Уровень {normalized}: очень сильный";
-        }
-
-        return $"Уровень {normalized}: максимум";
+    private static string GetDifficultyLabel(int difficulty)
+    {
+        var option = GetDifficultyOption(difficulty);
+        return $"Уровень {option.Level}: {option.Name}";
     }
 
     private static string GetDifficultyDescription(int difficulty)
     {
-        var normalized = NormalizeDifficulty(difficulty);
+        var option = GetDifficultyOption(difficulty);
+        var timeText = option.MoveTimeMs >= 1000
+            ? $"{option.MoveTimeMs / 1000.0:0.#} сек."
+            : $"{option.MoveTimeMs} мс";
 
-        if (normalized <= 4)
-        {
-            return "Подходит для первых партий: ИИ чаще ошибается и играет мягче.";
-        }
-
-        if (normalized <= 8)
-        {
-            return "Комфортный режим для практики: ИИ уже находит тактику, но ещё прощает неточности.";
-        }
-
-        if (normalized <= 13)
-        {
-            return "Серьёзная игра: ИИ стабильно считает варианты и наказывает за слабые ходы.";
-        }
-
-        if (normalized <= 17)
-        {
-            return "Продвинутый уровень: потребуется аккуратная игра без грубых ошибок.";
-        }
-
-        return "Максимальная сложность на этой странице: ИИ ищет самые точные продолжения.";
+        return $"{option.Description} Диапазон силы: {option.EloMin}–{option.EloMax} Elo. Время на ход: около {timeText}";
     }
 
     private static string FormatCount(int count, string one, string few, string many)
@@ -1414,6 +1566,7 @@
     public async ValueTask DisposeAsync()
     {
         _disposed = true;
+        ProfileNotifier.Changed -= HandleProfileChangedAsync;
         _gameClockTimer?.Dispose();
         _gameClockTimer = null;
 
@@ -1433,12 +1586,22 @@
         _objRef.Dispose();
     }
 
+
     private enum SideChoice
     {
         White,
         Random,
         Black
     }
+
+    private sealed record DifficultyOption(
+        int Level,
+        string Name,
+        int EloMin,
+        int EloMax,
+        int EngineElo,
+        int MoveTimeMs,
+        string Description);
 
     private sealed class MoveRow
     {

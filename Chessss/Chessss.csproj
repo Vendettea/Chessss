@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <Content Update="wwwroot\uploads\**" Watch="false" />
+    <Watch Remove="wwwroot\uploads\**" />
   </ItemGroup>
 
 </Project>

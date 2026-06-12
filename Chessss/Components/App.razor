@@ -15,15 +15,11 @@
     <link rel="stylesheet" href="css/chessboard-1.0.0.min.css">
 
     <ImportMap />
-    <link rel="icon" type="image/png" href="logo.png" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
     <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 
 <body>
-    <MudThemeProvider />
-    <MudDialogProvider />
-    <MudSnackbarProvider />
-
     <Routes @rendermode="InteractiveServer" />
 
     <script src="_framework/blazor.web.js"></script>
@@ -31,9 +27,7 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <script src="js/chessboard-1.0.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/stockfish.js@10.0.2/stockfish.min.js"></script>
-    <script src="js/simple-bot.js"></script>
-    <script src="js/stockfish-bridge.js"></script>
+    <script src="js/stockfish-runtime.js"></script>
     <script src="js/chess-logic.js"></script>
     <script src="js/analysis.js"></script>
 </body>

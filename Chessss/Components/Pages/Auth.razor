@@ -2,13 +2,11 @@
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Components
 
-<div class="d-flex align-center justify-center" style="min-height: 80vh;">
+<div class="page-shell auth-page">
     <MudContainer MaxWidth="MaxWidth.Small">
-        <MudPaper Elevation="4"
-                  Class="pa-8"
-                  Style="@($"border-radius: 20px; background-color: {(IsDarkMode ? "#1e1e1e" : "#ffffff")};")">
-
-            <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-6 fw-bold" Style="color: white !important;">Вход</MudText>
+        <MudPaper Elevation="0" Class="form-panel auth-card">
+            <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-4 fw-bold">Вход</MudText>
+            <MudText Typo="Typo.body2" Align="Align.Center" Class="auth-muted mb-6">Войдите в UltraChess, чтобы сохранять партии, рейтинг и профиль.</MudText>
 
             @if (!string.IsNullOrEmpty(SuccessMessage))
             {
@@ -26,7 +24,7 @@
                 <MudTextField @bind-Value="LoginModel.Email"
                               Label="Email"
                               name="email"
-                              Variant="Variant.Filled"
+                              Variant="Variant.Outlined"
                               InputType="InputType.Email"
                               Required="true"
                               RequiredError="Введите почту"
@@ -35,7 +33,7 @@
                 <MudTextField @bind-Value="LoginModel.Password"
                               Label="Пароль"
                               name="password"
-                              Variant="Variant.Filled"
+                              Variant="Variant.Outlined"
                               InputType="InputType.Password"
                               Required="true"
                               RequiredError="Введите пароль"
@@ -45,22 +43,13 @@
                            Variant="Variant.Filled"
                            Color="Color.Success"
                            FullWidth="true"
-                           Style="height: 50px; border-radius: 10px;"
-                           Class="mt-4">
+                           Class="auth-submit">
                     Войти
                 </MudButton>
 
-                <div class="d-flex justify-center mt-4">
-                    <MudText Typo="Typo.body2"
-                             Class="mr-1"
-                             Style="@($"color: {(IsDarkMode ? "#aaa" : "#666")}")">
-                        Нет аккаунта?
-                    </MudText>
-                    <MudLink Href="/regis"
-                             Underline="Underline.Hover"
-                             Color="Color.Success"
-                             Typo="Typo.body2"
-                             Class="fw-bold">
+                <div class="auth-footer">
+                    <MudText Typo="Typo.body2" Class="auth-muted">Нет аккаунта?</MudText>
+                    <MudLink Href="/regis" Underline="Underline.Hover" Color="Color.Success" Typo="Typo.body2" Class="fw-bold">
                         Зарегистрироваться
                     </MudLink>
                 </div>
@@ -68,6 +57,38 @@
         </MudPaper>
     </MudContainer>
 </div>
+
+<style>
+    .auth-page {
+        min-height: calc(100dvh - 2rem);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding-block: 1rem 2rem;
+    }
+
+    .auth-card {
+        max-width: 32rem;
+        margin-inline: auto;
+    }
+
+    .auth-submit {
+        min-height: 3.25rem;
+        border-radius: 1rem;
+    }
+
+    .auth-footer {
+        display: flex;
+        justify-content: center;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+    }
+
+    .auth-muted {
+        color: var(--app-muted);
+    }
+</style>
 
 @code {
     [CascadingParameter]

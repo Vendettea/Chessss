@@ -2,41 +2,44 @@
 @using Microsoft.JSInterop
 @inject IJSRuntime JS
 @using System.Text.Json
-@implements IDisposable
+@implements IAsyncDisposable
 
 <PageTitle>Анализ партии</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
-    <MudGrid>
-        <MudItem xs="12" md="6">
-            <div class="pa-4 bg-transparent">
-                <div class="d-flex flex-column">
-                    <div id="analysis-board" style="width: 100%; max-width: 760px; margin: 0 auto;"></div>
-                    
-                    <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4" Spacing="4" Style="max-width: 760px; margin: 0 auto; width: 100%;">
-                        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Filled" Color="Color.Primary" OnClick="PrevMove" />
-                        <MudIconButton Icon="@Icons.Material.Filled.ArrowForward" Variant="Variant.Filled" Color="Color.Primary" OnClick="NextMove" />
-                    </MudStack>
-                </div>
-                
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4 page-shell">
+    <div class="analysis-layout chess-layout">
+        <section class="analysis-board-column">
+            <MudPaper Elevation="0" Class="analysis-board-panel chess-board-panel">
+                <div id="analysis-board" class="analysis-board"></div>
+
+                <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4 analysis-board-actions" Spacing="2">
+                    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Filled" Color="Color.Primary" OnClick="PrevMove" />
+                    <MudIconButton Icon="@Icons.Material.Filled.ArrowForward" Variant="Variant.Filled" Color="Color.Primary" OnClick="NextMove" />
+                </MudStack>
+
                 <MudText Typo="Typo.h5" Class="mt-4 text-center">Оценка: @CurrentEvaluation</MudText>
-            </div>
-        </MudItem>
-        
-        <MudItem xs="12" md="6">
-            <MudPaper Class="pa-4 mb-4" Elevation="3">
+            </MudPaper>
+        </section>
+
+        <section class="analysis-side-column">
+            <MudPaper Class="pa-4 mb-4 chess-side-panel" Elevation="0">
                 <MudText Typo="Typo.h6" Class="mb-4">Анализ</MudText>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="StartAnalysis" FullWidth="true" Disabled="@IsAnalyzing">@AnalyzeButtonText</MudButton>
+                <MudText Typo="Typo.subtitle2">Движок</MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">Stockfish 18 Lite</MudText>
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-3">
+                    @_engineStatusText
+                </MudAlert>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="StartAnalysis" FullWidth="true" Disabled="@(IsAnalyzing || !_boardReady)">@AnalyzeButtonText</MudButton>
             </MudPaper>
 
-            <MudPaper Class="pa-4" Elevation="3">
+            <MudPaper Class="pa-4 chess-side-panel" Elevation="0">
                 <MudTextField @bind-Value="PgnInput" Label="Вставьте PGN партии" Lines="5" Variant="Variant.Outlined" />
                 <MudStack Row="true" Class="mt-3" Spacing="2" Justify="Justify.FlexStart" Wrap="Wrap.Wrap">
                     <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="LoadPgn">Загрузить PGN</MudButton>
                 </MudStack>
             </MudPaper>
             
-            <MudPaper Class="pa-4 mt-4" Elevation="3">
+            <MudPaper Class="pa-4 mt-4 chess-side-panel" Elevation="0">
                 <MudText Typo="Typo.h6" Class="mb-2">Качество ходов</MudText>
                 <MudGrid>
                     <MudItem xs="6">
@@ -53,7 +56,7 @@
                 </MudGrid>
             </MudPaper>
             
-            <MudPaper Class="pa-4 mt-4" Elevation="3" Style="height: 350px;">
+            <MudPaper Class="pa-4 mt-4 chess-side-panel analysis-chart-panel" Elevation="0">
                 <MudText Typo="Typo.h6">График оценки (CAPS)</MudText>
                 @if (ChartData != null && ChartData.Count > 0)
                 {
@@ -64,9 +67,42 @@
                     <MudText Class="mt-4">Загрузите партию или сделайте ходы для отображения графика.</MudText>
                 }
             </MudPaper>
-        </MudItem>
-    </MudGrid>
+        </section>
+    </div>
 </MudContainer>
+
+<style>
+    .analysis-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(20rem, 24rem);
+        gap: 1rem;
+        align-items: start;
+    }
+
+    .analysis-board-panel {
+        padding: clamp(0.85rem, 1.5vw, 1.25rem);
+    }
+
+    .analysis-board {
+        width: min(100%, 760px);
+        margin: 0 auto;
+    }
+
+    .analysis-board-actions {
+        width: min(100%, 760px);
+        margin-inline: auto;
+    }
+
+    .analysis-chart-panel {
+        min-height: 20rem;
+    }
+
+    @@media (max-width: 1080px) {
+        .analysis-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
 
 @code {
     private string PgnInput { get; set; } = "";
@@ -74,6 +110,12 @@
     private bool IsAnalyzing { get; set; } = false;
     private string AnalyzeButtonText => IsAnalyzing ? "Анализируем..." : "Начать анализ";
     
+    private bool _boardReady;
+    private const string StockfishEngineKey = "stockfish18Lite";
+    private const string StockfishEngineLabel = "Stockfish 18 Lite";
+
+    private string _engineStatusText = "Загрузите PGN и нажмите «Начать анализ».";
+    private string _selectedEngineKey = StockfishEngineKey;
     private DotNetObjectReference<Analysis>? objRef;
     private List<double> ChartData = new();
     private string[] ChartLabels = Array.Empty<string>();
@@ -90,12 +132,21 @@
         { "Blunder", 0 }
     };
 
+    private string GetSelectedEngineDescription()
+    {
+        return StockfishEngineLabel;
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             objRef = DotNetObjectReference.Create(this);
-            await JS.InvokeVoidAsync("analysisBridge.init", objRef);
+            _selectedEngineKey = StockfishEngineKey;
+            _boardReady = await JS.InvokeAsync<bool>("analysisBridge.init", objRef, StockfishEngineKey);
+            _engineStatusText = _boardReady
+                ? "Доска готова. Загрузите PGN и нажмите «Начать анализ»."
+                : "Не удалось подготовить доску анализа.";
             UpdateChart();
             StateHasChanged();
         }
@@ -137,9 +188,22 @@
 
     private async Task StartAnalysis()
     {
+        if (!_boardReady)
+        {
+            return;
+        }
+
         IsAnalyzing = true;
         ResetQualities();
-        await JS.InvokeVoidAsync("analysisBridge.analyzeAllMoves");
+        _engineStatusText = $"Загружаем {GetSelectedEngineDescription()}...";
+        StateHasChanged();
+        var started = await JS.InvokeAsync<bool>("analysisBridge.analyzeAllMoves", StockfishEngineKey);
+
+        if (!started)
+        {
+            IsAnalyzing = false;
+            _engineStatusText = "Stockfish 18 Lite не загрузился. Проверьте файлы движка и консоль браузера.";
+        }
     }
 
     [JSInvokable]
@@ -257,8 +321,16 @@
         };
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
+        try
+        {
+            await JS.InvokeVoidAsync("analysisBridge.destroy");
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
         objRef?.Dispose();
     }
 }

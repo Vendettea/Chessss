@@ -7,7 +7,7 @@
 
 <PageTitle>UltraChess - Лидерборд</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="mt-8">
+<div class="page-shell leaderboard-page">
     <MudStack Spacing="3">
         <div>
             <MudText Typo="Typo.h3" Style="text-align:center">Лидерборд</MudText>
@@ -28,7 +28,7 @@
         }
         else
         {
-            <MudPaper Elevation="3" Class="leaderboard-table-shell">
+            <MudPaper Elevation="0" Class="leaderboard-table-shell app-card">
                 <table class="leaderboard-table">
                     <thead>
                         <tr>
@@ -65,16 +65,20 @@
             </MudPaper>
         }
     </MudStack>
-</MudContainer>
+</div>
 
 <style>
+    .leaderboard-page {
+        padding-block: 1rem 1.5rem;
+    }
+
     .leaderboard-subtitle {
-        opacity: 0.78;
+        color: var(--app-muted);
     }
 
     .leaderboard-table-shell {
         overflow-x: auto;
-        border-radius: 12px;
+        border-radius: 1.25rem;
     }
 
     .leaderboard-table {
@@ -93,11 +97,11 @@
 
     .leaderboard-table th {
         font-weight: 700;
-        opacity: 0.78;
+        color: var(--app-muted);
     }
 
     .leaderboard-table tbody tr:hover {
-        background: rgba(74, 222, 128, 0.08);
+        background: color-mix(in srgb, var(--app-accent) 10%, transparent);
     }
 
     .rank-cell {

@@ -2,136 +2,180 @@
 @rendermode InteractiveServer
 @attribute [Authorize]
 @using System.ComponentModel.DataAnnotations
+@using Chessss.Components.Common
 @using Chessss.Models
 @using Chessss.Services
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Identity
 
 @inject UserManager<ApplicationUser> UserManager
 @inject PlayerProfileService PlayerProfiles
+@inject UserAvatarService AvatarService
+@inject UserProfileChangeNotifier ProfileNotifier
 @inject NavigationManager Nav
 
 <PageTitle>UltraChess - Профиль</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-8">
+<div class="page-shell profile-page">
     @if (_loading)
     {
         <MudProgressLinear Indeterminate="true" Color="Color.Success" />
     }
     else if (_profile is null)
     {
-        <MudAlert Severity="Severity.Error">Не удалось загрузить профиль.</MudAlert>
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">Не удалось загрузить профиль.</MudAlert>
     }
     else
     {
         <MudStack Spacing="3">
-            <div>
-                <MudText Typo="Typo.h3" style="text-align: center;">Мой профиль</MudText>
+            <div class="profile-page__heading">
+                <MudText Typo="Typo.h3">Профиль</MudText>
+                <MudText Typo="Typo.body2" Class="profile-muted">Личная карточка игрока UltraChess</MudText>
             </div>
 
-            @if (Saved == "1")
+            @if (!string.IsNullOrWhiteSpace(_statusMessage))
             {
-                <MudAlert Severity="Severity.Success" Variant="Variant.Filled">Никнейм сохранен.</MudAlert>
+                <MudAlert Severity="@_statusSeverity" Variant="Variant.Outlined">@_statusMessage</MudAlert>
             }
 
-            @if (!string.IsNullOrWhiteSpace(_error))
-            {
-                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@_error</MudAlert>
-            }
+            <MudPaper Elevation="0" Class="profile-card profile-hero-card">
+                <div class="profile-hero-card__head">
+                    <UserAvatar AvatarUrl="@_profile.AvatarUrl"
+                                DisplayName="@_profile.Nickname"
+                                AvatarSize="Size.Large"
+                                Class="profile-hero-card__avatar" />
 
-            <MudGrid Spacing="3">
-                <MudItem xs="12" md="5">
-                    <MudPaper Elevation="3" Class="pa-5 profile-panel">
-                        <MudText Typo="Typo.h5" Class="mb-4">Настройки</MudText>
+                    <div class="profile-hero-card__copy">
+                        <MudText Typo="Typo.h4">@_profile.Nickname</MudText>
+                        <MudText Typo="Typo.body2" Class="profile-muted">@_profile.Email</MudText>
+                        <MudText Typo="Typo.caption" Class="profile-hero-card__caption">
+                            Рейтинг, прогресс и история побед в одном месте.
+                        </MudText>
+                    </div>
+                </div>
 
-                        <EditForm Model="_editModel" OnValidSubmit="SaveNicknameAsync">
-                            <DataAnnotationsValidator />
+                <div class="responsive-grid profile-stats-grid">
+                    <div class="stats-card profile-stat">
+                        <span>Elo / рейтинг</span>
+                        <strong>@_profile.EloRating</strong>
+                    </div>
+                    <div class="stats-card profile-stat">
+                        <span>Место в рейтинге</span>
+                        <strong>@(_profile.Rank?.ToString() ?? "—")</strong>
+                    </div>
+                    <div class="stats-card profile-stat">
+                        <span>Макс. уровень ИИ</span>
+                        <strong>@_profile.MaxAIDifficultyText</strong>
+                    </div>
+                    <div class="stats-card profile-stat">
+                        <span>Сыграно партий</span>
+                        <strong>@_profile.GamesPlayed</strong>
+                    </div>
+                    <div class="stats-card profile-stat">
+                        <span>Победы</span>
+                        <strong>@_profile.Wins</strong>
+                    </div>
+                    <div class="stats-card profile-stat">
+                        <span>Поражения</span>
+                        <strong>@_profile.Losses</strong>
+                    </div>
+                    <div class="stats-card profile-stat">
+                        <span>Ничьи</span>
+                        <strong>@_profile.Draws</strong>
+                    </div>
+                    <div class="stats-card profile-stat">
+                        <span>Win rate</span>
+                        <strong>@_profile.WinRateText</strong>
+                    </div>
+                    <div class="stats-card profile-stat">
+                        <span>Средняя точность</span>
+                        <strong>@_profile.AverageAccuracyText</strong>
+                    </div>
+                    <div class="stats-card profile-stat">
+                        <span>Партии в архиве</span>
+                        <strong>@_profile.ArchivedGamesCount</strong>
+                    </div>
+                </div>
+            </MudPaper>
 
-                            <MudTextField @bind-Value="_editModel.Nickname"
-                                          Label="Nickname"
-                                          Variant="Variant.Outlined"
-                                          For="@(() => _editModel.Nickname)"
-                                          Immediate="true"
-                                          Class="mb-3" />
+            <MudPaper Elevation="0" Class="form-panel profile-settings-card">
+                <MudText Typo="Typo.h5">Настройки профиля</MudText>
+                <MudText Typo="Typo.body2" Class="profile-muted">
+                    Ник обновляется сразу после сохранения. Аватар поддерживает jpg, jpeg, png и webp до 5 МБ.
+                </MudText>
 
-                            <MudText Typo="Typo.caption" Class="profile-muted d-block mb-4">
-                                3-20 символов: латинские буквы, цифры, _ и -
-                            </MudText>
+                <EditForm Model="_editModel" OnValidSubmit="SaveNicknameAsync">
+                    <DataAnnotationsValidator />
 
-                            <MudButton ButtonType="ButtonType.Submit"
-                                       Variant="Variant.Filled"
-                                       Color="Color.Success"
-                                       FullWidth="true">
-                                Сохранить
-                            </MudButton>
-                        </EditForm>
-                    </MudPaper>
-                </MudItem>
+                    <MudTextField @bind-Value="_editModel.Nickname"
+                                  Label="Никнейм"
+                                  Variant="Variant.Outlined"
+                                  For="@(() => _editModel.Nickname)"
+                                  Immediate="true"
+                                  Class="mb-2" />
 
-                <MudItem xs="12" md="7">
-                    <MudPaper Elevation="3" Class="pa-5 profile-panel">
-                        <MudText Typo="Typo.h5" Class="mb-4">Статистика</MudText>
-                        <div class="profile-stat-grid">
-                            <span>Nickname</span><strong>@_profile.Nickname</strong>
-                            <span>Email</span><strong>@_profile.Email</strong>
-                            <span>EloRating</span><strong>@_profile.EloRating</strong>
-                            <span>GamesPlayed</span><strong>@_profile.GamesPlayed</strong>
-                            <span>Wins</span><strong>@_profile.Wins</strong>
-                            <span>Losses</span><strong>@_profile.Losses</strong>
-                            <span>Draws</span><strong>@_profile.Draws</strong>
-                            <span>WinRate</span><strong>@_profile.WinRateText</strong>
-                            <span>RegisteredAt</span><strong>@_profile.RegisteredAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</strong>
-                            <span>Место</span><strong>@(_profile.Rank?.ToString() ?? "нет в лидерборде")</strong>
-                        </div>
-                    </MudPaper>
-                </MudItem>
-            </MudGrid>
+                    <MudText Typo="Typo.caption" Class="profile-muted d-block mb-4">
+                        3-20 символов: латинские буквы, цифры, _ и -
+                    </MudText>
+
+                    <MudButton ButtonType="ButtonType.Submit"
+                               Variant="Variant.Filled"
+                               Color="Color.Success"
+                               Disabled="@_busy"
+                               FullWidth="true">
+                        Сохранить никнейм
+                    </MudButton>
+                </EditForm>
+
+                <MudDivider Class="my-1" />
+
+                <MudText Typo="Typo.h6">Аватар</MudText>
+                <div class="profile-upload-row">
+                    <div class="profile-upload-stack">
+                        <InputFile OnChange="HandleAvatarSelectedAsync"
+                                   accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                                   class="profile-upload-input" />
+                        <MudText Typo="Typo.caption" Class="profile-meta-line">
+                            Только изображения. Старый файл удаляется автоматически после замены.
+                        </MudText>
+                    </div>
+
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Error"
+                               Disabled="@(_busy || string.IsNullOrWhiteSpace(_currentUser?.AvatarUrl))"
+                               OnClick="DeleteAvatarAsync">
+                        Удалить аватар
+                    </MudButton>
+                </div>
+
+                <MudText Typo="Typo.caption" Class="profile-meta-line">
+                    Дата регистрации: @_profile.RegisteredAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                </MudText>
+            </MudPaper>
         </MudStack>
     }
-</MudContainer>
-
-<style>
-    .profile-panel {
-        border-radius: 12px;
-    }
-
-    .profile-muted {
-        opacity: 0.75;
-    }
-
-    .profile-stat-grid {
-        display: grid;
-        grid-template-columns: minmax(120px, 1fr) minmax(0, 2fr);
-        gap: 0.9rem 1rem;
-        align-items: center;
-    }
-
-    .profile-stat-grid span {
-        opacity: 0.7;
-    }
-
-    .profile-stat-grid strong {
-        min-width: 0;
-        overflow-wrap: anywhere;
-        font-variant-numeric: tabular-nums;
-    }
-</style>
+</div>
 
 @code {
     [CascadingParameter]
     private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
 
-    [SupplyParameterFromQuery]
-    public string? Saved { get; set; }
-
     private ApplicationUser? _currentUser;
     private PlayerProfileSummary? _profile;
-    private ProfileEditModel _editModel = new();
-    private string? _error;
+    private readonly ProfileEditModel _editModel = new();
     private bool _loading = true;
+    private bool _busy;
+    private string? _statusMessage;
+    private Severity _statusSeverity = Severity.Success;
 
     protected override async Task OnInitializedAsync()
+    {
+        await LoadProfileAsync();
+    }
+
+    private async Task LoadProfileAsync()
     {
         if (AuthenticationStateTask is null)
         {
@@ -162,10 +206,18 @@
 
     private async Task SaveNicknameAsync()
     {
-        _error = UserProfileRules.ValidateNickname(_editModel.Nickname);
-
-        if (_error is not null || _currentUser is null)
+        if (_currentUser is null)
         {
+            return;
+        }
+
+        _busy = true;
+        _statusMessage = UserProfileRules.ValidateNickname(_editModel.Nickname);
+
+        if (_statusMessage is not null)
+        {
+            _statusSeverity = Severity.Error;
+            _busy = false;
             return;
         }
 
@@ -173,7 +225,9 @@
 
         if (!await PlayerProfiles.IsNicknameAvailableAsync(nickname, _currentUser.Id))
         {
-            _error = "Этот никнейм уже занят.";
+            _statusSeverity = Severity.Error;
+            _statusMessage = "Этот никнейм уже занят.";
+            _busy = false;
             return;
         }
 
@@ -184,11 +238,95 @@
 
         if (!result.Succeeded)
         {
-            _error = string.Join(" ", result.Errors.Select(e => e.Description));
+            _statusSeverity = Severity.Error;
+            _statusMessage = string.Join(" ", result.Errors.Select(e => e.Description));
+            _busy = false;
             return;
         }
 
-        Nav.NavigateTo("/profile?saved=1", forceLoad: true);
+        _profile = await PlayerProfiles.GetProfileAsync(_currentUser.Id, includeEmail: true);
+        await ProfileNotifier.NotifyAsync(_currentUser.Id);
+        _statusSeverity = Severity.Success;
+        _statusMessage = "Никнейм сохранён.";
+        _busy = false;
+    }
+
+    private async Task HandleAvatarSelectedAsync(InputFileChangeEventArgs args)
+    {
+        if (_currentUser is null)
+        {
+            return;
+        }
+
+        var file = args.File;
+
+        if (file is null)
+        {
+            return;
+        }
+
+        _busy = true;
+
+        var previousAvatarUrl = _currentUser.AvatarUrl;
+        var uploadResult = await AvatarService.SaveAvatarAsync(_currentUser.Id, file);
+
+        if (!uploadResult.Success || string.IsNullOrWhiteSpace(uploadResult.AvatarUrl))
+        {
+            _statusSeverity = Severity.Error;
+            _statusMessage = uploadResult.ErrorMessage ?? "Не удалось загрузить аватар.";
+            _busy = false;
+            return;
+        }
+
+        _currentUser.AvatarUrl = uploadResult.AvatarUrl;
+        var updateResult = await UserManager.UpdateAsync(_currentUser);
+
+        if (!updateResult.Succeeded)
+        {
+            await AvatarService.DeleteAvatarAsync(uploadResult.AvatarUrl);
+            _currentUser.AvatarUrl = previousAvatarUrl;
+            _statusSeverity = Severity.Error;
+            _statusMessage = string.Join(" ", updateResult.Errors.Select(e => e.Description));
+            _busy = false;
+            return;
+        }
+
+        await AvatarService.DeleteAvatarAsync(previousAvatarUrl);
+        _profile = await PlayerProfiles.GetProfileAsync(_currentUser.Id, includeEmail: true);
+        await ProfileNotifier.NotifyAsync(_currentUser.Id);
+        _statusSeverity = Severity.Success;
+        _statusMessage = "Аватар обновлён.";
+        _busy = false;
+    }
+
+    private async Task DeleteAvatarAsync()
+    {
+        if (_currentUser is null || string.IsNullOrWhiteSpace(_currentUser.AvatarUrl))
+        {
+            return;
+        }
+
+        _busy = true;
+        var previousAvatarUrl = _currentUser.AvatarUrl;
+        _currentUser.AvatarUrl = null;
+
+        var updateResult = await UserManager.UpdateAsync(_currentUser);
+
+        if (!updateResult.Succeeded)
+        {
+            _currentUser.AvatarUrl = previousAvatarUrl;
+            _statusSeverity = Severity.Error;
+            _statusMessage = string.Join(" ", updateResult.Errors.Select(e => e.Description));
+            _busy = false;
+            return;
+        }
+
+        await AvatarService.DeleteAvatarAsync(previousAvatarUrl);
+        _profile = await PlayerProfiles.GetProfileAsync(_currentUser.Id, includeEmail: true);
+        await ProfileNotifier.NotifyAsync(_currentUser.Id);
+        _statusSeverity = Severity.Success;
+        _statusMessage = "Аватар удалён.";
+        _busy = false;
     }
 
     private sealed class ProfileEditModel

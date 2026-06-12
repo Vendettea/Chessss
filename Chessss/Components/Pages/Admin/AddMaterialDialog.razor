@@ -1,9 +1,11 @@
 ﻿@using MudBlazor
 @using Chessss.Models
+@using Chessss.Services
 @using System.IO
 @using System.Security.Cryptography
 @inject ISnackbar Snackbar
 @inject IWebHostEnvironment Env
+@inject UploadStorageService UploadStorage
 
 <MudDialog>
     <TitleContent>
@@ -104,8 +106,8 @@
         // Удаляем предыдущую загруженную временную картинку (если была в этом сеансе диалога)
         if (!string.IsNullOrEmpty(_temporaryImageUrl) && _temporaryImageUrl.StartsWith("/uploads/"))
         {
-            var tempPath = Path.Combine("wwwroot", _temporaryImageUrl.TrimStart('/'));
-            if (System.IO.File.Exists(tempPath))
+            var tempPath = UploadStorage.ResolvePhysicalPath(_temporaryImageUrl);
+            if (!string.IsNullOrWhiteSpace(tempPath) && System.IO.File.Exists(tempPath))
             {
                 try { System.IO.File.Delete(tempPath); }
                 catch { /* ignore */ }
@@ -115,7 +117,7 @@
         // Загружаем новый файл
         var extension = Path.GetExtension(file.Name);
         var fileName = $"{Guid.NewGuid()}{extension}";
-        var path = Path.Combine("wwwroot", "uploads", fileName);
+        var path = Path.Combine(UploadStorage.GetUploadsDirectory(), fileName);
 
         await using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
         await using var fileStream = new FileStream(path, FileMode.Create);
@@ -135,8 +137,8 @@
     {
         if (!string.IsNullOrEmpty(Model.ImageUrl) && Model.ImageUrl.StartsWith("/uploads/"))
         {
-            var path = Path.Combine("wwwroot", Model.ImageUrl.TrimStart('/'));
-            if (System.IO.File.Exists(path))
+            var path = UploadStorage.ResolvePhysicalPath(Model.ImageUrl);
+            if (!string.IsNullOrWhiteSpace(path) && System.IO.File.Exists(path))
                 System.IO.File.Delete(path);
         }
 
@@ -149,8 +151,8 @@
     {
         if (!string.IsNullOrEmpty(_temporaryImageUrl) && _temporaryImageUrl.StartsWith("/uploads/"))
         {
-            var path = Path.Combine("wwwroot", _temporaryImageUrl.TrimStart('/'));
-            if (System.IO.File.Exists(path))
+            var path = UploadStorage.ResolvePhysicalPath(_temporaryImageUrl);
+            if (!string.IsNullOrWhiteSpace(path) && System.IO.File.Exists(path))
                 System.IO.File.Delete(path);
             _temporaryImageUrl = null;
         }
@@ -166,8 +168,8 @@
             && _originalImageUrl != Model.ImageUrl
             && _originalImageUrl.StartsWith("/uploads/"))
         {
-            var oldPath = Path.Combine("wwwroot", _originalImageUrl.TrimStart('/'));
-            if (System.IO.File.Exists(oldPath))
+            var oldPath = UploadStorage.ResolvePhysicalPath(_originalImageUrl);
+            if (!string.IsNullOrWhiteSpace(oldPath) && System.IO.File.Exists(oldPath))
             {
                 try { System.IO.File.Delete(oldPath); }
                 catch { /* файл может быть использован другим гайдом */ }

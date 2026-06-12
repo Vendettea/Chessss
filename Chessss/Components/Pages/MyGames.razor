@@ -14,7 +14,7 @@
 
 <PageTitle>UltraChess - Мои партии</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-games-page py-4 py-md-6">
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-games-page py-4 py-md-6 page-shell">
     <div class="my-games-toolbar mb-4">
         <MudStack Spacing="1">
             <MudText Typo="Typo.h4" Class="my-games-title" style="text-align:center">Мои партии</MudText>
@@ -31,7 +31,7 @@
 
     @if (_showImportPanel)
     {
-        <MudPaper Elevation="2" Class="pa-3 pa-md-4 mb-4">
+        <MudPaper Elevation="0" Class="pa-3 pa-md-4 mb-4 app-card">
             <MudStack Spacing="2">
                 <MudText Typo="Typo.h6">Импорт PGN</MudText>
                 <MudTextField @bind-Value="_importPgn"
@@ -60,7 +60,7 @@
         </MudPaper>
     }
 
-    <MudPaper Elevation="3" Class="pa-3 pa-md-4">
+    <MudPaper Elevation="0" Class="pa-3 pa-md-4 app-card">
         <MudTable T="UserGame"
                   @ref="_table"
                   ServerData="LoadGamesAsync"
@@ -117,8 +117,7 @@
 <style>
     .my-games-page {
         max-width: 100%;
-        height: calc(100vh - 96px);
-        overflow-y: auto;
+        min-height: calc(100dvh - 2rem);
         overflow-x: hidden;
         padding-bottom: 1rem;
     }

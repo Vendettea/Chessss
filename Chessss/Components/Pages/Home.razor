@@ -1,112 +1,159 @@
-﻿@page "/"
-@using MudBlazor
+@page "/"
 
 <PageTitle>UltraChess</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="mt-16 pt-10">
-    
-    @* --- HERO СЕКЦИЯ --- *@
-    <div class="hero-section text-center py-12">
-        <MudText Typo="Typo.h1" Class="@(IsDarkMode ? "text-gradient mb-4" : "text-gradient-light mb-4")">UltraChess</MudText>
-        <MudText Typo="Typo.h3" Class="mb-8 fw-bold" Style="@($"color: {(IsDarkMode ? "#b0b0b0" : "#424242")}; transition: 0.3s;")">
-            Развивай свои шахматные навыки с помощью анализа партий, гайдов и ИИ-помощника
-        </MudText>
-        
-        <div class="d-flex justify-center gap-4">
-            <MudButton Variant="Variant.Outlined" 
-                       Color="Color.Warning" 
-                       Size="Size.Large" 
-                       Href="/auth"
-                       Style="border-radius: 12px; padding: 12px 24px; border-width: 2px;">
-                Войти в аккаунт
-            </MudButton>
-            
-            <MudButton Variant="Variant.Outlined" 
-                       Color="Color.Success" 
-                       Size="Size.Large"
-                       Href="/playwithai"
-                       Style="border-radius: 12px; padding: 12px 24px; border-width: 2px;">
-                Играть с ботом
-            </MudButton>
+<div class="page-shell home-page">
+    <section class="home-hero app-card">
+        <div class="home-hero__copy">
+            <MudText Typo="Typo.overline" Class="home-hero__eyebrow">UltraChess</MudText>
+            <MudText Typo="Typo.h2" Class="home-hero__title">Играй, анализируй и прокачивай шахматы в одном интерфейсе.</MudText>
+            <MudText Typo="Typo.body1" Class="home-hero__subtitle">
+                Сыграйте партию против Stockfish 18 Lite, разберите свои решения и соберите собственный шахматный профиль без перегруженных экранов.
+            </MudText>
+
+            <div class="home-hero__actions">
+                <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Large" Href="/playwithai">
+                    Играть с ИИ
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Warning" Size="Size.Large" Href="/auth">
+                    Войти в аккаунт
+                </MudButton>
+            </div>
         </div>
-    </div>
 
-    @* --- КАРТОЧКИ ФУНКЦИЙ --- *@
-    <MudGrid Class="mt-8">
-        <MudItem xs="12" md="4">
-            <div class="feature-card-wrapper">
-                <MudPaper Elevation="2" Class="pa-6 feature-card" 
-                          Style="@($"background-color: {(IsDarkMode ? "#1e1e1e" : "#ffffff")}; border-color: {(IsDarkMode ? "#333" : "#e0e0e0")}; transition: 0.3s;")">
-                    <MudIcon Icon="@Icons.Material.Filled.AutoGraph" Color="Color.Success" Size="Size.Large" Class="mb-4"/>
-                    <MudText Typo="Typo.h6" Class="fw-bold" Style="@($"color: {(IsDarkMode ? "#fff" : "#212121")}")">Анализ партии</MudText>
-                    <MudText Typo="Typo.body2" Style="@($"color: {(IsDarkMode ? "#b0b0b0" : "#616161")}")">
-                        Движок Stockfish разберет твою партию и покажет твои ошибки и лучшие ходы
-                    </MudText>
-                </MudPaper>
+        <div class="home-hero__panel">
+            <div class="home-hero__badge">20 уровней сложности</div>
+            <div class="home-hero__metric">
+                <span>Движок</span>
+                <strong>Stockfish 18 Lite</strong>
             </div>
-        </MudItem>
-        
-        <MudItem xs="12" md="4">
-            <div class="feature-card-wrapper">
-                <MudPaper Elevation="2" Class="pa-6 feature-card"
-                          Style="@($"background-color: {(IsDarkMode ? "#1e1e1e" : "#ffffff")}; border-color: {(IsDarkMode ? "#333" : "#e0e0e0")}; transition: 0.3s;")">
-                    <MudIcon Icon="@Icons.Material.Filled.Psychology" Color="Color.Info" Size="Size.Large" Class="mb-4"/>
-                    <MudText Typo="Typo.h6" Class="fw-bold" Style="@($"color: {(IsDarkMode ? "#fff" : "#212121")}")">ИИ-бот</MudText>
-                    <MudText Typo="Typo.body2" Style="@($"color: {(IsDarkMode ? "#b0b0b0" : "#616161")}")">
-                        Сам выберай уровень сложности и сторону для игры с ИИ на базе Stockfish
-                    </MudText>
-                </MudPaper>
+            <div class="home-hero__metric">
+                <span>Режимы</span>
+                <strong>Игра, анализ, обучение</strong>
             </div>
-        </MudItem>
-        
-        <MudItem xs="12" md="4">
-            <div class="feature-card-wrapper">
-                <MudPaper Elevation="2" Class="pa-6 feature-card"
-                          Style="@($"background-color: {(IsDarkMode ? "#1e1e1e" : "#ffffff")}; border-color: {(IsDarkMode ? "#333" : "#e0e0e0")}; transition: 0.3s;")">
-                    <MudIcon Icon="@Icons.Material.Filled.ModelTraining" Color="Color.Warning" Size="Size.Large" Class="mb-4"/>
-                    <MudText Typo="Typo.h6" Class="fw-bold" Style="@($"color: {(IsDarkMode ? "#fff" : "#212121")}")">Персональный план</MudText>
-                    <MudText Typo="Typo.body2" Style="@($"color: {(IsDarkMode ? "#b0b0b0" : "#616161")}")">
-                        Нейросеть составит программу обучения на основе твоей статистики и целей
-                    </MudText>
-                </MudPaper>
-            </div>
-        </MudItem>
-    </MudGrid>
+        </div>
+    </section>
 
-</MudContainer>
+    <section class="responsive-grid home-features">
+        <MudPaper Elevation="0" Class="app-card home-feature">
+            <MudIcon Icon="@Icons.Material.Filled.AutoGraph" Color="Color.Success" Size="Size.Large" Class="mb-3" />
+            <MudText Typo="Typo.h6">Анализ партии</MudText>
+            <MudText Typo="Typo.body2" Class="home-feature__text">
+                Разбирайте PGN, следите за графиком оценки и находите проблемные решения без лишних шагов.
+            </MudText>
+        </MudPaper>
 
-@code {
-    [CascadingParameter] public bool IsDarkMode { get; set; }
-}
+        <MudPaper Elevation="0" Class="app-card home-feature">
+            <MudIcon Icon="@Icons.Material.Filled.Psychology" Color="Color.Info" Size="Size.Large" Class="mb-3" />
+            <MudText Typo="Typo.h6">Игра с ИИ</MudText>
+            <MudText Typo="Typo.body2" Class="home-feature__text">
+                Выбирайте сторону и уровень силы, а доска и панели автоматически перестраиваются под ширину экрана.
+            </MudText>
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="app-card home-feature">
+            <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Warning" Size="Size.Large" Class="mb-3" />
+            <MudText Typo="Typo.h6">Личный профиль</MudText>
+            <MudText Typo="Typo.body2" Class="home-feature__text">
+                Храните статистику, рейтинг, аватар и историю партий в одном месте без хаотичных экранов.
+            </MudText>
+        </MudPaper>
+    </section>
+</div>
 
 <style>
-    .text-gradient {
-        background: linear-gradient(90deg, #FFFFFF, #4ADE80);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: clamp(3rem, 10vw, 6rem) !important;
-        font-weight: 900;
+    .home-page {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        padding-block: 0.5rem 1.5rem;
     }
 
-    .text-gradient-light {
-        background: linear-gradient(90deg, #1A1A1A, #2E7D32);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: clamp(3rem, 10vw, 6rem) !important;
-        font-weight: 900;
+    .home-hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(18rem, 0.85fr);
+        gap: 1.25rem;
+        padding: clamp(1.2rem, 3vw, 2rem);
+        position: relative;
+        overflow: hidden;
+        background:
+            radial-gradient(circle at top right, color-mix(in srgb, var(--app-accent-2) 18%, transparent), transparent 30%),
+            linear-gradient(135deg, color-mix(in srgb, var(--app-surface) 94%, transparent), color-mix(in srgb, var(--app-surface-2) 90%, transparent));
     }
 
-    .feature-card {
-        border: 1px solid;
-        border-radius: 16px;
-        transition: all 0.3s ease;
-        cursor: default;
-        height: 100%;
+    .home-hero__eyebrow {
+        color: var(--app-accent-2);
+        letter-spacing: 0.16em;
+        font-weight: 700;
     }
 
-    .feature-card-wrapper:hover .feature-card {
-        transform: translateY(-8px);
-        border-color: #4ADE80 !important;
-        box-shadow: 0 10px 20px rgba(74, 222, 128, 0.15) !important;
+    .home-hero__title {
+        max-width: 14ch;
+        font-weight: 800;
+        line-height: 1.02;
+    }
+
+    .home-hero__subtitle {
+        max-width: 60ch;
+        color: var(--app-muted);
+        margin-top: 1rem;
+    }
+
+    .home-hero__actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-top: 1.5rem;
+    }
+
+    .home-hero__panel {
+        display: grid;
+        gap: 0.85rem;
+        align-content: center;
+    }
+
+    .home-hero__badge,
+    .home-hero__metric {
+        padding: 1rem 1.1rem;
+        border-radius: 1rem;
+        border: 1px solid var(--app-border);
+        background: color-mix(in srgb, var(--app-surface-2) 72%, transparent);
+    }
+
+    .home-hero__badge {
+        font-weight: 700;
+        color: var(--app-accent);
+    }
+
+    .home-hero__metric {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    .home-hero__metric span,
+    .home-feature__text {
+        color: var(--app-muted);
+    }
+
+    .home-hero__metric strong {
+        font-size: 1.05rem;
+    }
+
+    .home-feature {
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+    }
+
+    @@media (max-width: 920px) {
+        .home-hero {
+            grid-template-columns: 1fr;
+        }
+
+        .home-hero__title {
+            max-width: none;
+        }
     }
 </style>

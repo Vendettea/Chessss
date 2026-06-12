@@ -29,12 +29,15 @@ namespace Chessss.Services
                     u.Id,
                     u.Nickname,
                     u.Email,
+                    u.AvatarUrl,
                     u.EloRating,
                     u.GamesPlayed,
                     u.Wins,
                     u.Losses,
                     u.Draws,
-                    u.RegisteredAt
+                    u.RegisteredAt,
+                    u.PreferredAIDifficulty,
+                    u.MaxAIDifficultyBeaten
                 })
                 .FirstOrDefaultAsync();
 
@@ -48,19 +51,53 @@ namespace Chessss.Services
                 : [];
 
             var rank = leaderboard.FirstOrDefault(p => p.Id == user.Id)?.Rank;
+            var analyzedGames = await _db.UserGames
+                .AsNoTracking()
+                .Where(x => x.UserId == user.Id && x.IsAnalyzed)
+                .Select(x => new
+                {
+                    x.PlayedAsWhite,
+                    x.WhiteAccuracy,
+                    x.BlackAccuracy
+                })
+                .ToListAsync();
+
+            var accuracyValues = analyzedGames
+                .Select(x => x.PlayedAsWhite switch
+                {
+                    true => x.WhiteAccuracy,
+                    false => x.BlackAccuracy,
+                    _ => null
+                })
+                .Where(x => x.HasValue)
+                .Select(x => x!.Value)
+                .ToList();
+
+            var averageAccuracy = accuracyValues.Count == 0
+                ? (double?)null
+                : Math.Round(accuracyValues.Average(), 1);
+
+            var archivedGamesCount = await _db.UserGames
+                .AsNoTracking()
+                .CountAsync(x => x.UserId == user.Id);
 
             return new PlayerProfileSummary
             {
                 Id = user.Id,
                 Nickname = UserProfileRules.GetDisplayName(user.Nickname, user.Email),
                 Email = includeEmail ? user.Email : null,
+                AvatarUrl = user.AvatarUrl,
                 EloRating = user.EloRating,
                 GamesPlayed = user.GamesPlayed,
                 Wins = user.Wins,
                 Losses = user.Losses,
                 Draws = user.Draws,
                 RegisteredAt = user.RegisteredAt,
-                Rank = rank
+                Rank = rank,
+                PreferredAIDifficulty = user.PreferredAIDifficulty,
+                MaxAIDifficultyBeaten = user.MaxAIDifficultyBeaten,
+                ArchivedGamesCount = archivedGamesCount,
+                AverageAccuracy = averageAccuracy
             };
         }
 
@@ -79,12 +116,15 @@ namespace Chessss.Services
                     u.Id,
                     u.Nickname,
                     u.Email,
+                    u.AvatarUrl,
                     u.EloRating,
                     u.GamesPlayed,
                     u.Wins,
                     u.Losses,
                     u.Draws,
-                    u.RegisteredAt
+                    u.RegisteredAt,
+                    u.PreferredAIDifficulty,
+                    u.MaxAIDifficultyBeaten
                 })
                 .ToListAsync();
 
@@ -92,13 +132,17 @@ namespace Chessss.Services
                 {
                     Id = u.Id,
                     Nickname = UserProfileRules.GetDisplayName(u.Nickname, u.Email),
+                    AvatarUrl = u.AvatarUrl,
                     EloRating = u.EloRating,
                     GamesPlayed = u.GamesPlayed,
                     Wins = u.Wins,
                     Losses = u.Losses,
                     Draws = u.Draws,
                     RegisteredAt = u.RegisteredAt,
-                    Rank = index + 1
+                    Rank = index + 1,
+                    PreferredAIDifficulty = u.PreferredAIDifficulty,
+                    MaxAIDifficultyBeaten = u.MaxAIDifficultyBeaten,
+                    ArchivedGamesCount = 0
                 })
                 .ToList();
         }
@@ -142,6 +186,7 @@ namespace Chessss.Services
         public string Id { get; init; } = string.Empty;
         public string Nickname { get; init; } = string.Empty;
         public string? Email { get; init; }
+        public string? AvatarUrl { get; init; }
         public int EloRating { get; init; }
         public int GamesPlayed { get; init; }
         public int Wins { get; init; }
@@ -149,12 +194,25 @@ namespace Chessss.Services
         public int Draws { get; init; }
         public DateTime RegisteredAt { get; init; }
         public int? Rank { get; init; }
+        public int? PreferredAIDifficulty { get; init; }
+        public int? MaxAIDifficultyBeaten { get; init; }
+        public int ArchivedGamesCount { get; init; }
+        public double? AverageAccuracy { get; init; }
 
         public decimal WinRate => GamesPlayed == 0
             ? 0
             : Math.Round((decimal)Wins / GamesPlayed * 100, 1);
 
         public string WinRateText => $"{WinRate:0.#}%";
+        public string MaxAIDifficultyText => MaxAIDifficultyBeaten is null
+            ? "пока нет"
+            : $"Уровень {MaxAIDifficultyBeaten} / 20";
+        public string AverageAccuracyText => AverageAccuracy is null
+            ? "—"
+            : $"{AverageAccuracy:0.#}%";
+        public string AIDifficultyText => PreferredAIDifficulty is null
+            ? "не выбрана"
+            : $"Уровень {PreferredAIDifficulty} / 20";
     }
 
     public static partial class UserProfileRules

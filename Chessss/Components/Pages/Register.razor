@@ -1,73 +1,107 @@
 @page "/regis"
-@using MudBlazor
+@using System.ComponentModel.DataAnnotations
 @using Chessss.Models
 @using Chessss.Services
 @using Microsoft.AspNetCore.Identity
-@using System.ComponentModel.DataAnnotations
+@using MudBlazor
 
 @inject UserManager<ApplicationUser> UserManager
 @inject PlayerProfileService PlayerProfiles
 @inject NavigationManager Nav
 
-<PageTitle>UltraChess - Registration</PageTitle>
+<PageTitle>UltraChess - Регистрация</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center" Style="height: 80vh;">
-    <MudPaper Elevation="4" Class="pa-8"
-              Style="@($"width: 100%; background-color: {(IsDarkMode ? "#1e1e1e" : "#ffffff")}; color: {(IsDarkMode ? "#ffffff" : "#212121")}; border-radius: 20px; border: 1px solid {(IsDarkMode ? "#333" : "transparent")}; transition: 0.3s;")">
+<div class="page-shell register-page">
+    <MudContainer MaxWidth="MaxWidth.Small">
+        <MudPaper Elevation="0" Class="form-panel register-card">
+            <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-4 fw-bold">Регистрация</MudText>
+            <MudText Typo="Typo.body2" Align="Align.Center" Class="register-muted mb-6">Создайте аккаунт, чтобы играть с ИИ, хранить партии и отслеживать прогресс.</MudText>
 
-        <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-6 fw-bold">Регистрация</MudText>
+            <EditForm Model="RegModel" OnValidSubmit="HandleRegister" FormName="register-form">
+                <DataAnnotationsValidator />
 
-        <EditForm Model="RegModel" OnValidSubmit="HandleRegister" FormName="register-form">
-            <DataAnnotationsValidator />
+                <MudTextField @bind-Value="RegModel.Email"
+                              name="Model.Email"
+                              Label="Email"
+                              Variant="Variant.Outlined"
+                              Class="mb-4"
+                              For="@(() => RegModel.Email)"
+                              Required="true"
+                              RequiredError="Введите Email" />
 
-            <MudTextField @bind-Value="RegModel.Email"
-                          name="Model.Email"
-                          Label="Email"
-                          Variant="Variant.Filled"
-                          Class="mb-4"
-                          For="@(() => RegModel.Email)"
-                          Required="true"
-                          RequiredError="Введите Email" />
+                <MudTextField @bind-Value="RegModel.Password"
+                              name="Model.Password"
+                              Label="Пароль"
+                              Variant="Variant.Outlined"
+                              InputType="InputType.Password"
+                              Class="mb-4"
+                              For="@(() => RegModel.Password)"
+                              Required="true"
+                              RequiredError="Введите пароль" />
 
-            <MudTextField @bind-Value="RegModel.Password"
-                          name="Model.Password"
-                          Label="Пароль"
-                          Variant="Variant.Filled"
-                          InputType="InputType.Password"
-                          Class="mb-4"
-                          For="@(() => RegModel.Password)"
-                          Required="true"
-                          RequiredError="Введите пароль" />
+                <MudTextField @bind-Value="RegModel.ConfirmPassword"
+                              name="Model.ConfirmPassword"
+                              Label="Повторите пароль"
+                              Variant="Variant.Outlined"
+                              For="@(() => RegModel.ConfirmPassword)"
+                              Required="true"
+                              RequiredError="Повторите ввод пароля" />
 
-            <MudTextField @bind-Value="RegModel.ConfirmPassword"
-                          name="Model.ConfirmPassword"
-                          Label="Повторите пароль"
-                          Variant="Variant.Filled"
-                          InputType="InputType.Password"
-                          For="@(() => RegModel.ConfirmPassword)"
-                          Required="true"
-                          RequiredError="Повторите ввод пароля" />
+                @if (!string.IsNullOrEmpty(_serverError))
+                {
+                    <MudText Color="Color.Error" Typo="Typo.caption" Class="d-block mb-4 mt-3" Align="Align.Center">@_serverError</MudText>
+                }
 
-            @if (!string.IsNullOrEmpty(_serverError))
-            {
-                <MudText Color="Color.Error" Typo="Typo.caption" Class="d-block mb-4 mt-2" Align="Align.Center">@_serverError</MudText>
-            }
+                <MudButton ButtonType="ButtonType.Submit"
+                           Variant="Variant.Filled"
+                           Color="Color.Success"
+                           FullWidth="true"
+                           Class="register-submit">
+                    Зарегистрироваться
+                </MudButton>
+            </EditForm>
 
-            <MudButton ButtonType="ButtonType.Submit"
-                       Variant="Variant.Filled"
-                       Color="Color.Success"
-                       FullWidth="true"
-                       Class="mt-4 py-3">
-                Зарегистрироваться
-            </MudButton>
-        </EditForm>
+            <div class="register-footer">
+                <MudText Typo="Typo.body2" Class="register-muted">Есть аккаунт?</MudText>
+                <MudLink Href="/auth" Underline="Underline.Hover" Color="Color.Success" Typo="Typo.body2" Class="fw-bold">
+                    Войти
+                </MudLink>
+            </div>
+        </MudPaper>
+    </MudContainer>
+</div>
 
-        <div class="d-flex justify-center mt-4">
-            <MudText Typo="Typo.body2" Class="mr-1" Style="@($"color: {(IsDarkMode ? "#aaa" : "#666")}")">Есть аккаунт?</MudText>
-            <MudLink Href="/auth" Underline="Underline.Hover" Color="Color.Success" Typo="Typo.body2" Class="fw-bold">Войти</MudLink>
-        </div>
-    </MudPaper>
-</MudContainer>
+<style>
+    .register-page {
+        min-height: calc(100dvh - 2rem);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding-block: 1rem 2rem;
+    }
+
+    .register-card {
+        max-width: 34rem;
+        margin-inline: auto;
+    }
+
+    .register-submit {
+        min-height: 3.25rem;
+        border-radius: 1rem;
+    }
+
+    .register-footer {
+        display: flex;
+        justify-content: center;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+    }
+
+    .register-muted {
+        color: var(--app-muted);
+    }
+</style>
 
 @code {
     [CascadingParameter] public bool IsDarkMode { get; set; }
@@ -99,7 +133,7 @@
 
         try
         {
-            ApplicationUser newUser = new ApplicationUser
+            var newUser = new ApplicationUser
             {
                 UserName = email,
                 Email = email,
