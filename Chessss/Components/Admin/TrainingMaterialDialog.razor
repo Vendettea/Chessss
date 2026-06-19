@@ -10,7 +10,7 @@
 
 <MudDialog>
     <DialogContent>
-        <MudText Typo="Typo.h5" Class="mb-6">@(Material?.Id == 0 ? "Создать новый гайд" : "Редактировать гайд")</MudText>
+        <MudText Typo="Typo.h5" Class="mb-6">@(Material?.Id == 0 ? "Создать новый материал" : "Редактировать материал")</MudText>
 
         <MudTextField @bind-Value="Material.Title" 
                       Label="Название" 
@@ -126,7 +126,7 @@
             }
 
             await Db.SaveChangesAsync();
-            Snackbar.Add("Гайд сохранен", Severity.Success);
+            Snackbar.Add("Материал сохранен", Severity.Success);
             MudDialog.Close(DialogResult.Ok(Material));
         }
         catch (Exception ex)

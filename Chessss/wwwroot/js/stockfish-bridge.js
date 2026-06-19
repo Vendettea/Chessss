@@ -103,7 +103,7 @@ window.stockfishBridge = {
         this.dotNetRef.invokeMethodAsync('RequestServerMove');
     },
 
-    // Отрисовка доски для обучающих гайдов
+    // Отрисовка доски для обучающих учебных материалов
     initBoardOnly: function (elementId, fen) {
         var pos = (fen && fen !== "") ? fen : 'start';
         Chessboard(elementId, {

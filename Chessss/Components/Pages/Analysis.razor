@@ -14,100 +14,590 @@
 <PageTitle>Анализ партии</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4 page-shell">
-    <div class="analysis-layout chess-layout">
+    <div class="analysis-layout">
+
+        @* ═══ BOARD COLUMN ═══ *@
         <section class="analysis-board-column">
             <MudPaper Elevation="0" Class="analysis-board-panel chess-board-panel">
+
+                @* Top player bar (Black) *@
+                <div class="player-bar player-bar--top">
+                    <div class="player-bar__piece player-bar__piece--black">♟</div>
+                    <div class="player-bar__info">
+                        <span class="player-bar__name">@_blackPlayer</span>
+                        <span class="player-bar__role">Чёрные</span>
+                    </div>
+                </div>
+
                 <div id="analysis-board" class="analysis-board"></div>
 
-                <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4 analysis-board-actions" Spacing="2">
-                    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Filled" Color="Color.Primary" OnClick="PrevMove" />
-                    <MudIconButton Icon="@Icons.Material.Filled.ArrowForward" Variant="Variant.Filled" Color="Color.Primary" OnClick="NextMove" />
-                </MudStack>
+                @* Bottom player bar (White) *@
+                <div class="player-bar player-bar--bottom">
+                    <div class="player-bar__piece player-bar__piece--white">♙</div>
+                    <div class="player-bar__info">
+                        <span class="player-bar__name">@_whitePlayer</span>
+                        <span class="player-bar__role">Белые</span>
+                    </div>
+                </div>
 
-                <MudText Typo="Typo.h5" Class="mt-4 text-center">Оценка: @CurrentEvaluation</MudText>
+                <MudText Typo="Typo.h5" Class="mt-4 text-center eval-text">Оценка: @CurrentEvaluation</MudText>
             </MudPaper>
         </section>
 
+        @* ═══ SIDE COLUMN ═══ *@
         <section class="analysis-side-column">
-            <MudPaper Class="pa-4 mb-4 chess-side-panel" Elevation="0">
-                <MudText Typo="Typo.h6" Class="mb-4">Анализ</MudText>
-                <MudText Typo="Typo.subtitle2">Движок</MudText>
+
+            @* Engine + PGN controls *@
+            <MudPaper Class="pa-4 mb-3 chess-side-panel" Elevation="0">
+                <MudText Typo="Typo.subtitle2" Class="mb-1">Движок</MudText>
                 <MudText Typo="Typo.body2" Class="mb-3">Stockfish 18 Lite</MudText>
+
                 <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-3">
                     @_engineStatusText
                 </MudAlert>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="StartAnalysis" FullWidth="true" Disabled="@(IsAnalyzing || !_boardReady)">@AnalyzeButtonText</MudButton>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           OnClick="StartAnalysis"
+                           FullWidth="true"
+                           Disabled="@(IsAnalyzing || !_boardReady)">
+                    @AnalyzeButtonText
+                </MudButton>
             </MudPaper>
 
-            <MudPaper Class="pa-4 chess-side-panel" Elevation="0">
-                <MudTextField @bind-Value="PgnInput" Label="Вставьте PGN партии" Lines="5" Variant="Variant.Outlined" />
-                <MudStack Row="true" Class="mt-3" Spacing="2" Justify="Justify.FlexStart" Wrap="Wrap.Wrap">
+            <MudPaper Class="pa-4 mb-3 chess-side-panel" Elevation="0">
+                <MudTextField @bind-Value="PgnInput"
+                              Label="Вставьте PGN партии"
+                              Lines="4"
+                              Variant="Variant.Outlined" />
+                <MudStack Row="true" Class="mt-3" Spacing="2" Justify="Justify.FlexStart">
                     <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="LoadPgn">Загрузить PGN</MudButton>
                 </MudStack>
             </MudPaper>
-            
-            <MudPaper Class="pa-4 mt-4 chess-side-panel" Elevation="0">
-                <MudText Typo="Typo.h6" Class="mb-2">Качество ходов</MudText>
-                <MudGrid>
-                    <MudItem xs="6">
-                        <MudText Color="Color.Info"><b>Бриллиантовые:</b> @MoveQualities["Brilliant"]</MudText>
-                        <MudText Color="Color.Success"><b>Отличные:</b> @MoveQualities["Excellent"]</MudText>
-                        <MudText Color="Color.Success"><b>Хорошие:</b> @MoveQualities["Good"]</MudText>
-                        <MudText Color="Color.Primary"><b>Лучшие:</b> @MoveQualities["Best"]</MudText>
-                    </MudItem>
-                    <MudItem xs="6">
-                        <MudText Color="Color.Warning"><b>Неточности:</b> @MoveQualities["Inaccuracy"]</MudText>
-                        <MudText Color="Color.Error"><b>Ошибки:</b> @MoveQualities["Mistake"]</MudText>
-                        <MudText Color="Color.Error"><b>Зевки:</b> @MoveQualities["Blunder"]</MudText>
-                    </MudItem>
-                </MudGrid>
+
+            @* Tabs: Отчёт / Анализ *@
+            <MudPaper Class="chess-side-panel" Elevation="0">
+                <MudTabs Elevation="0"
+                         Rounded="false"
+                         ApplyEffectsToContainer="true"
+                         Class="analysis-tabs"
+                         PanelClass="pa-4">
+
+                    @* ── Отчёт ── *@
+                    <MudTabPanel Text="Отчёт">
+
+                        @* Accuracy *@
+                        <div class="report-players mb-4">
+                            <div class="report-player">
+                                <span class="report-player__name">@_whitePlayer</span>
+                                <span class="report-player__side">Белые</span>
+                            </div>
+                            <span class="report-vs">vs</span>
+                            <div class="report-player report-player--right">
+                                <span class="report-player__name">@_blackPlayer</span>
+                                <span class="report-player__side">Чёрные</span>
+                            </div>
+                        </div>
+
+                        <div class="accuracy-row mb-4">
+                            <div class="accuracy-block">
+                                <span class="accuracy-value">@(_whiteAccuracy?.ToString("0.0") ?? "--")</span>
+                                <span class="accuracy-label">Белые</span>
+                                <div class="accuracy-bar">
+                                    <div class="accuracy-bar__fill accuracy-bar__fill--white"
+                                         style="width: @((_whiteAccuracy ?? 0).ToString("0", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                                </div>
+                            </div>
+                            <div class="accuracy-divider">
+                                <MudIcon Icon="@Icons.Material.Filled.Speed" Size="Size.Small" />
+                                <span class="accuracy-divider-label">Точность</span>
+                            </div>
+                            <div class="accuracy-block accuracy-block--right">
+                                <span class="accuracy-value">@(_blackAccuracy?.ToString("0.0") ?? "--")</span>
+                                <span class="accuracy-label">Чёрные</span>
+                                <div class="accuracy-bar">
+                                    <div class="accuracy-bar__fill accuracy-bar__fill--black"
+                                         style="width: @((_blackAccuracy ?? 0).ToString("0", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        @* Eval chart *@
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">График оценки</MudText>
+                        @if (ChartData != null && ChartData.Count > 0)
+                        {
+                            <MudChart ChartType="ChartType.Line"
+                                      ChartSeries="@ChartSeries"
+                                      XAxisLabels="@_emptyLabels"
+                                      Width="100%"
+                                      Height="180px" />
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Class="muted-text">Запустите анализ для отображения графика.</MudText>
+                        }
+
+                        @* Move quality table *@
+                        <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">Качество ходов</MudText>
+
+                        <div class="mq-two-col">
+                            @* Good moves *@
+                            <div class="mq-group">
+                                <div class="mq-group-header">
+                                    <span class="mq-group-dot mq-group-dot--good">●</span>
+                                    <span>Хорошие</span>
+                                    <span class="mq-group-wb">Б</span>
+                                    <span class="mq-group-wb">Ч</span>
+                                </div>
+                                @foreach (var row in MoveQualityGoodRows)
+                                {
+                                    <div class="mq-row-item">
+                                        <span class="mq-icon">@row.Icon</span>
+                                        <span class="mq-row-label" style="color:@row.Color">@row.Label</span>
+                                        <span class="mq-row-val">@MoveQualitiesWhite[row.Key]</span>
+                                        <span class="mq-row-val">@MoveQualitiesBlack[row.Key]</span>
+                                    </div>
+                                }
+                            </div>
+
+                            @* Bad moves *@
+                            <div class="mq-group">
+                                <div class="mq-group-header">
+                                    <span class="mq-group-dot mq-group-dot--bad">●</span>
+                                    <span>Плохие</span>
+                                    <span class="mq-group-wb">Б</span>
+                                    <span class="mq-group-wb">Ч</span>
+                                </div>
+                                @foreach (var row in MoveQualityBadRows)
+                                {
+                                    <div class="mq-row-item">
+                                        <span class="mq-icon">@row.Icon</span>
+                                        <span class="mq-row-label" style="color:@row.Color">@row.Label</span>
+                                        <span class="mq-row-val">@MoveQualitiesWhite[row.Key]</span>
+                                        <span class="mq-row-val">@MoveQualitiesBlack[row.Key]</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                    </MudTabPanel>
+
+                    @* ── Анализ ── *@
+                    <MudTabPanel Text="Анализ">
+
+                        @* Eval score *@
+                        <div class="analysis-eval-bar mb-3">
+                            <span class="analysis-eval-score">@CurrentEvaluation</span>
+                        </div>
+
+                        @* Navigation buttons *@
+                        <div class="analysis-nav mb-3">
+                            <MudIconButton Icon="@Icons.Material.Filled.FirstPage"
+                                           Variant="Variant.Filled"
+                                           Color="Color.Primary"
+                                           Size="Size.Medium"
+                                           OnClick="GoFirst"
+                                           Title="В начало" />
+                            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                                           Variant="Variant.Filled"
+                                           Color="Color.Primary"
+                                           Size="Size.Medium"
+                                           OnClick="PrevMove"
+                                           Title="Предыдущий ход" />
+                            <MudIconButton Icon="@Icons.Material.Filled.ArrowForward"
+                                           Variant="Variant.Filled"
+                                           Color="Color.Primary"
+                                           Size="Size.Medium"
+                                           OnClick="NextMove"
+                                           Title="Следующий ход" />
+                            <MudIconButton Icon="@Icons.Material.Filled.LastPage"
+                                           Variant="Variant.Filled"
+                                           Color="Color.Primary"
+                                           Size="Size.Medium"
+                                           OnClick="GoLast"
+                                           Title="В конец" />
+                        </div>
+
+                        @* Move list *@
+                        <div class="move-list" id="move-list-container">
+                            @if (_moveList.Count == 0)
+                            {
+                                <MudText Typo="Typo.body2" Class="muted-text">Загрузите PGN для отображения ходов.</MudText>
+                            }
+                            else
+                            {
+                                @for (int pairIdx = 0; pairIdx < _moveList.Count; pairIdx += 2)
+                                {
+                                    int moveNum = pairIdx / 2 + 1;
+                                    int wIdx = pairIdx;
+                                    int bIdx = pairIdx + 1;
+                                    int wHalf = pairIdx;       // half-move index (0-based)
+                                    int bHalf = pairIdx + 1;
+
+                                    <div class="move-pair">
+                                        <span class="move-num">@moveNum.</span>
+
+                                        @* White move *@
+                                        @{
+                                            var wMove = _moveList[wIdx];
+                                            bool wActive = _currentMoveIndex == wHalf;
+                                        }
+                                        <span class="move-san @(wActive ? "move-san--active" : "")"
+                                              @onclick="() => GoToMove(wHalf)">
+                                            <span class="move-badge" style="background:@GetQualityColor(wMove.Quality)">@GetQualityIcon(wMove.Quality)</span>
+                                            @wMove.San
+                                        </span>
+
+                                        @* Black move *@
+                                        @if (bIdx < _moveList.Count)
+                                        {
+                                            var bMove = _moveList[bIdx];
+                                            bool bActive = _currentMoveIndex == bHalf;
+                                            <span class="move-san @(bActive ? "move-san--active" : "")"
+                                                  @onclick="() => GoToMove(bHalf)">
+                                                <span class="move-badge" style="background:@GetQualityColor(bMove.Quality)">@GetQualityIcon(bMove.Quality)</span>
+                                                @bMove.San
+                                            </span>
+                                        }
+                                    </div>
+                                }
+                            }
+                        </div>
+
+                    </MudTabPanel>
+
+                </MudTabs>
             </MudPaper>
-            
-            <MudPaper Class="pa-4 mt-4 chess-side-panel analysis-chart-panel" Elevation="0">
-                <MudText Typo="Typo.h6">График оценки (CAPS)</MudText>
-                @if (ChartData != null && ChartData.Count > 0)
-                {
-                    <MudChart ChartType="ChartType.Line" ChartSeries="@ChartSeries" XAxisLabels="@ChartLabels" Width="100%" Height="250px" />
-                }
-                else
-                {
-                    <MudText Class="mt-4">Загрузите партию или сделайте ходы для отображения графика.</MudText>
-                }
-            </MudPaper>
+
         </section>
     </div>
 </MudContainer>
 
+@* Keyboard navigation *@
+<div @onkeydown="HandleKeyDown" tabindex="0" id="analysis-keyboard-trap" style="outline:none;position:fixed;opacity:0;pointer-events:none;"></div>
+
 <style>
+    /* ── Layout ── */
     .analysis-layout {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(20rem, 24rem);
+        grid-template-columns: minmax(0, 1fr) minmax(22rem, 26rem);
         gap: 1rem;
         align-items: start;
     }
 
     .analysis-board-panel {
         padding: clamp(0.85rem, 1.5vw, 1.25rem);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
 
     .analysis-board {
-        width: min(100%, 760px);
+        width: min(100%, 700px);
         margin: 0 auto;
     }
 
-    .analysis-board-actions {
-        width: min(100%, 760px);
-        margin-inline: auto;
+    .eval-text {
+        width: 100%;
     }
 
-    .analysis-chart-panel {
-        min-height: 20rem;
+    /* ── Player bars ── */
+    .player-bar {
+        width: min(100%, 700px);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.75rem;
+        background: color-mix(in srgb, var(--app-surface-2, #f0ebe2) 70%, transparent);
+        border: 1px solid var(--app-border, rgba(71,85,105,0.14));
+        margin-bottom: 0.5rem;
     }
 
-    @@media (max-width: 1080px) {
+    .player-bar--top { margin-bottom: 0.5rem; margin-top: 0; }
+    .player-bar--bottom { margin-top: 0.5rem; margin-bottom: 0; }
+
+    .player-bar__piece {
+        font-size: 1.5rem;
+        line-height: 1;
+    }
+
+    .player-bar__piece--black { color: var(--app-text, #1f2937); }
+    .player-bar__piece--white { color: var(--app-text, #1f2937); }
+
+    .player-bar__info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+    }
+
+    .player-bar__name {
+        font-weight: 700;
+        font-size: 0.95rem;
+    }
+
+    .player-bar__role {
+        font-size: 0.75rem;
+        color: var(--app-muted);
+    }
+
+    /* ── Tabs ── */
+    .analysis-tabs .mud-tab {
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    /* ── Report: player header ── */
+    .report-players {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .report-player {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+    }
+
+    .report-player--right {
+        align-items: flex-end;
+        text-align: right;
+    }
+
+    .report-player__name {
+        font-weight: 700;
+        font-size: 0.9rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .report-player__side {
+        font-size: 0.72rem;
+        color: var(--app-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .report-vs {
+        font-size: 0.75rem;
+        color: var(--app-muted);
+        font-weight: 600;
+        text-align: center;
+    }
+
+    /* ── Accuracy ── */
+    .accuracy-row {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 0.75rem;
+        align-items: center;
+    }
+
+    .accuracy-block {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .accuracy-block--right { align-items: flex-end; }
+
+    .accuracy-value {
+        font-size: 1.7rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .accuracy-label {
+        color: var(--app-muted);
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    .accuracy-bar {
+        width: 100%;
+        height: 5px;
+        background: color-mix(in srgb, var(--app-border, rgba(71,85,105,0.2)) 100%, transparent);
+        border-radius: 999px;
+        overflow: hidden;
+    }
+
+    .accuracy-bar__fill {
+        height: 100%;
+        border-radius: 999px;
+        transition: width 0.6s ease;
+    }
+
+    .accuracy-bar__fill--white { background: linear-gradient(90deg, #4caf50, #8bc34a); }
+    .accuracy-bar__fill--black { background: linear-gradient(90deg, #2196f3, #03a9f4); }
+
+    .accuracy-divider {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.15rem;
+    }
+
+    .accuracy-divider-label {
+        color: var(--app-muted);
+        font-size: 0.66rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        white-space: nowrap;
+    }
+
+    /* ── Move quality two-column layout ── */
+    .mq-two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+    }
+
+    .mq-group {
+        background: color-mix(in srgb, var(--app-surface-2, #f0ebe2) 40%, transparent);
+        border: 1px solid var(--app-border, rgba(71,85,105,0.14));
+        border-radius: 0.75rem;
+        padding: 0.6rem 0.75rem;
+    }
+
+    .mq-group-header {
+        display: grid;
+        grid-template-columns: auto 1fr auto auto;
+        gap: 0.25rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--app-muted);
+        padding-bottom: 0.4rem;
+        border-bottom: 1px solid var(--app-border, rgba(71,85,105,0.12));
+        margin-bottom: 0.3rem;
+        align-items: center;
+    }
+
+    .mq-group-dot { font-size: 0.6rem; }
+    .mq-group-dot--good { color: #4caf50; }
+    .mq-group-dot--bad  { color: #f44336; }
+    .mq-group-wb { text-align: center; min-width: 1.4rem; }
+
+    .mq-row-item {
+        display: grid;
+        grid-template-columns: 1.2rem 1fr auto auto;
+        gap: 0.2rem 0.25rem;
+        align-items: center;
+        padding: 0.2rem 0;
+        font-size: 0.83rem;
+    }
+
+    .mq-row-item + .mq-row-item {
+        border-top: 1px solid color-mix(in srgb, var(--app-border, rgba(71,85,105,0.1)) 60%, transparent);
+    }
+
+    .mq-icon { font-size: 0.85rem; text-align: center; }
+    .mq-row-label { font-weight: 500; font-size: 0.82rem; }
+    .mq-row-val { text-align: center; font-weight: 700; min-width: 1.4rem; font-size: 0.88rem; }
+
+    /* ── Analysis tab ── */
+    .analysis-eval-bar {
+        background: color-mix(in srgb, var(--app-surface-2, #f0ebe2) 60%, transparent);
+        border-radius: 0.75rem;
+        padding: 0.6rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .analysis-eval-score {
+        font-size: 1.5rem;
+        font-weight: 800;
+    }
+
+    .analysis-nav {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    /* ── Move list ── */
+    .move-list {
+        max-height: 420px;
+        overflow-y: auto;
+        border: 1px solid var(--app-border, rgba(71,85,105,0.14));
+        border-radius: 0.75rem;
+        padding: 0.5rem;
+    }
+
+    .move-pair {
+        display: grid;
+        grid-template-columns: 1.8rem 1fr 1fr;
+        gap: 0.15rem 0.25rem;
+        align-items: center;
+        padding: 0.18rem 0.25rem;
+        border-radius: 0.4rem;
+    }
+
+    .move-pair:hover { background: color-mix(in srgb, var(--app-surface-2, #f0ebe2) 60%, transparent); }
+
+    .move-num {
+        font-size: 0.78rem;
+        color: var(--app-muted);
+        font-weight: 600;
+        text-align: right;
+        padding-right: 0.3rem;
+    }
+
+    .move-san {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.88rem;
+        font-weight: 500;
+        cursor: pointer;
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.35rem;
+        transition: background 0.15s;
+    }
+
+    .move-san:hover { background: color-mix(in srgb, var(--app-accent, #2f6f5e) 15%, transparent); }
+
+    .move-san--active {
+        background: color-mix(in srgb, var(--app-accent, #2f6f5e) 22%, transparent);
+        font-weight: 700;
+        color: var(--app-accent, #2f6f5e);
+    }
+
+    .move-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.1rem;
+        height: 1.1rem;
+        border-radius: 999px;
+        font-size: 0.62rem;
+        flex-shrink: 0;
+        color: #fff;
+    }
+
+    /* ── Misc ── */
+    .muted-text { color: var(--app-muted); }
+
+    .mb-1 { margin-bottom: 0.25rem !important; }
+    .mb-2 { margin-bottom: 0.5rem !important; }
+    .mb-3 { margin-bottom: 0.75rem !important; }
+    .mb-4 { margin-bottom: 1rem !important; }
+    .mt-4 { margin-top: 1rem !important; }
+
+    @@media (max-width: 1100px) {
         .analysis-layout {
             grid-template-columns: 1fr;
         }
+    }
+
+    @@media (max-width: 520px) {
+        .mq-two-col { grid-template-columns: 1fr; }
     }
 </style>
 
@@ -119,43 +609,91 @@
     private string CurrentEvaluation { get; set; } = "0.0";
     private bool IsAnalyzing { get; set; } = false;
     private string AnalyzeButtonText => IsAnalyzing ? "Анализируем..." : "Начать анализ";
-    
+
     private bool _boardReady;
+    private bool _analysisComplete;
     private const string StockfishEngineKey = "stockfish18Lite";
     private const string StockfishEngineLabel = "Stockfish 18 Lite";
 
     private string _engineStatusText = "Загрузите PGN и нажмите «Начать анализ».";
-    private string _selectedEngineKey = StockfishEngineKey;
     private DotNetObjectReference<Analysis>? objRef;
     private List<double> ChartData = new();
-    private string[] ChartLabels = Array.Empty<string>();
+    private string[] _emptyLabels = Array.Empty<string>();
     private List<ChartSeries> ChartSeries = new();
     private string? _userId;
     private UserGame? _loadedGame;
-    
-    private Dictionary<string, int> MoveQualities = new()
+
+    private double? _whiteAccuracy;
+    private double? _blackAccuracy;
+
+    private string _whitePlayer = "Белые";
+    private string _blackPlayer = "Чёрные";
+
+    private int _currentMoveIndex = -1;
+    private int _totalMoves = 0;
+
+    // Move list entry
+    private record MoveEntry(string San, string Quality);
+    private List<MoveEntry> _moveList = new();
+
+    // Per-side move quality counts
+    private Dictionary<string, int> MoveQualitiesWhite = new()
     {
-        { "Brilliant", 0 },
-        { "Excellent", 0 },
-        { "Good", 0 },
-        { "Best", 0 },
-        { "Inaccuracy", 0 },
-        { "Mistake", 0 },
-        { "Blunder", 0 }
+        { "Brilliant", 0 }, { "Excellent", 0 }, { "Good", 0 }, { "Best", 0 },
+        { "Inaccuracy", 0 }, { "Mistake", 0 }, { "Blunder", 0 }
     };
 
-    private string GetSelectedEngineDescription()
+    private Dictionary<string, int> MoveQualitiesBlack = new()
     {
-        return StockfishEngineLabel;
-    }
+        { "Brilliant", 0 }, { "Excellent", 0 }, { "Good", 0 }, { "Best", 0 },
+        { "Inaccuracy", 0 }, { "Mistake", 0 }, { "Blunder", 0 }
+    };
+
+    // Good moves group
+    private record MoveQualityRowDef(string Key, string Label, string Color, string Icon);
+
+    private readonly List<MoveQualityRowDef> MoveQualityGoodRows = new()
+    {
+        new("Brilliant",  "Бриллиантовые", "#00bcd4", "!!"),
+        new("Excellent",  "Отличные",       "#4caf50", "!"),
+        new("Best",       "Лучшие",         "#2196f3", "★"),
+        new("Good",       "Хорошие",        "#8bc34a", "✓"),
+    };
+
+    private readonly List<MoveQualityRowDef> MoveQualityBadRows = new()
+    {
+        new("Inaccuracy", "Неточности", "#ff9800", "?"),
+        new("Mistake",    "Ошибки",     "#f44336", "?!"),
+        new("Blunder",    "Зевки",      "#b71c1c", "??"),
+    };
+
+    private string GetQualityColor(string q) => q switch
+    {
+        "Brilliant"  => "#00bcd4",
+        "Excellent"  => "#4caf50",
+        "Good"       => "#8bc34a",
+        "Best"       => "#2196f3",
+        "Inaccuracy" => "#ff9800",
+        "Mistake"    => "#f44336",
+        "Blunder"    => "#b71c1c",
+        _ => "#888"
+    };
+
+    private string GetQualityIcon(string q) => q switch
+    {
+        "Brilliant"  => "!!",
+        "Excellent"  => "!",
+        "Good"       => "✓",
+        "Best"       => "★",
+        "Inaccuracy" => "?",
+        "Mistake"    => "?!",
+        "Blunder"    => "??",
+        _ => "·"
+    };
 
     protected override async Task OnInitializedAsync()
     {
-        if (AuthenticationStateTask is null)
-        {
-            return;
-        }
-
+        if (AuthenticationStateTask is null) return;
         var authState = await AuthenticationStateTask;
         if (authState.User.Identity?.IsAuthenticated == true)
         {
@@ -169,7 +707,6 @@
         if (firstRender)
         {
             objRef = DotNetObjectReference.Create(this);
-            _selectedEngineKey = StockfishEngineKey;
             _boardReady = await JS.InvokeAsync<bool>("analysisBridge.init", objRef, StockfishEngineKey);
 
             if (!_boardReady)
@@ -180,16 +717,15 @@
             }
 
             if (Id.HasValue)
-            {
                 await LoadSavedGameAsync(Id.Value);
-            }
             else
-            {
                 _engineStatusText = "Доска готова. Загрузите PGN и нажмите «Начать анализ».";
-            }
 
             UpdateChart();
             StateHasChanged();
+
+            // Register keyboard handler
+            await JS.InvokeVoidAsync("analysisKeyboard.init", objRef);
         }
     }
 
@@ -202,7 +738,6 @@
         }
 
         var game = await UserGameService.GetUserGameAsync(_userId, id);
-
         if (game is null || string.IsNullOrWhiteSpace(game.PgnContent))
         {
             _engineStatusText = "Партия не найдена.";
@@ -211,6 +746,11 @@
 
         _loadedGame = game;
         PgnInput = game.PgnContent;
+        _whiteAccuracy = game.WhiteAccuracy;
+        _blackAccuracy = game.BlackAccuracy;
+        _analysisComplete = game.IsAnalyzed;
+        _whitePlayer = game.WhitePlayer;
+        _blackPlayer = game.BlackPlayer;
 
         ResetQualities();
         ChartData.Clear();
@@ -224,27 +764,54 @@
 
     private async Task LoadPgn()
     {
-        if (!string.IsNullOrWhiteSpace(PgnInput))
+        if (string.IsNullOrWhiteSpace(PgnInput)) return;
+
+        ResetQualities();
+        ChartData.Clear();
+        UpdateChart();
+        CurrentEvaluation = "0.0";
+        _analysisComplete = false;
+        _whiteAccuracy = null;
+        _blackAccuracy = null;
+        _currentMoveIndex = -1;
+        _moveList.Clear();
+
+        // Parse player names from PGN headers
+        ParsePgnHeaders(PgnInput);
+
+        var loaded = await JS.InvokeAsync<bool>("analysisBridge.loadPgn", PgnInput);
+        if (loaded)
         {
-            ResetQualities();
-            ChartData.Clear();
-            UpdateChart();
-            CurrentEvaluation = "0.0";
-            
-            await JS.InvokeAsync<bool>("analysisBridge.loadPgn", PgnInput);
+            // Ask JS for the move list
+            var moves = await JS.InvokeAsync<string[]>("analysisExtra.getMoveList");
+            _moveList = moves?.Select(m => new MoveEntry(m, "Best")).ToList() ?? new();
+            _totalMoves = _moveList.Count;
         }
+        StateHasChanged();
+    }
+
+    private void ParsePgnHeaders(string pgn)
+    {
+        foreach (var line in pgn.Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.StartsWith("[White "))
+                _whitePlayer = trimmed.Replace("[White \"", "").TrimEnd(']').TrimEnd('"').Trim();
+            else if (trimmed.StartsWith("[Black "))
+                _blackPlayer = trimmed.Replace("[Black \"", "").TrimEnd(']').TrimEnd('"').Trim();
+        }
+        if (string.IsNullOrWhiteSpace(_whitePlayer)) _whitePlayer = "Белые";
+        if (string.IsNullOrWhiteSpace(_blackPlayer)) _blackPlayer = "Чёрные";
     }
 
     private void ResetQualities()
     {
-        foreach (var key in MoveQualities.Keys.ToList())
+        foreach (var key in MoveQualitiesWhite.Keys.ToList())
         {
-            MoveQualities[key] = 0;
+            MoveQualitiesWhite[key] = 0;
+            MoveQualitiesBlack[key] = 0;
         }
     }
-
-    private void LoadLastGame() { }
-    private void LoadFromChessCom() { }
 
     private async Task PrevMove()
     {
@@ -256,17 +823,46 @@
         await JS.InvokeVoidAsync("analysisBridge.nextMove");
     }
 
+    private async Task GoFirst()
+    {
+        await JS.InvokeVoidAsync("analysisExtra.goFirst");
+    }
+
+    private async Task GoLast()
+    {
+        await JS.InvokeVoidAsync("analysisExtra.goLast");
+    }
+
+    private async Task GoToMove(int halfMoveIndex)
+    {
+        await JS.InvokeVoidAsync("analysisExtra.goToMove", halfMoveIndex);
+    }
+
+    // Called from JS keyboard handler
+    [JSInvokable]
+    public async Task KeyPrev() => await PrevMove();
+
+    [JSInvokable]
+    public async Task KeyNext() => await NextMove();
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "ArrowLeft") await PrevMove();
+        else if (e.Key == "ArrowRight") await NextMove();
+        else if (e.Key == "ArrowUp" || e.Key == "Home") await GoFirst();
+        else if (e.Key == "ArrowDown" || e.Key == "End") await GoLast();
+    }
+
     private async Task StartAnalysis()
     {
-        if (!_boardReady)
-        {
-            return;
-        }
+        if (!_boardReady) return;
 
         IsAnalyzing = true;
+        _analysisComplete = false;
         ResetQualities();
-        _engineStatusText = $"Загружаем {GetSelectedEngineDescription()}...";
+        _engineStatusText = $"Загружаем {StockfishEngineLabel}...";
         StateHasChanged();
+
         var started = await JS.InvokeAsync<bool>("analysisBridge.analyzeAllMoves", StockfishEngineKey);
 
         if (!started)
@@ -280,29 +876,52 @@
     public async Task OnAnalysisComplete()
     {
         IsAnalyzing = false;
+        _analysisComplete = true;
         CalculateMoveQualities();
+        UpdateMoveListQualities();
+        var (wa, ba) = CalculateAccuracy();
+        _whiteAccuracy = wa;
+        _blackAccuracy = ba;
         StateHasChanged();
 
         if (_loadedGame is not null && !string.IsNullOrWhiteSpace(_userId))
         {
-            var (whiteAccuracy, blackAccuracy) = CalculateAccuracy();
-            await UserGameService.SaveAnalysisResultAsync(_loadedGame.Id, _userId, whiteAccuracy, blackAccuracy);
+            await UserGameService.SaveAnalysisResultAsync(_loadedGame.Id, _userId, wa, ba);
             _loadedGame.IsAnalyzed = true;
-            _loadedGame.WhiteAccuracy = whiteAccuracy;
-            _loadedGame.BlackAccuracy = blackAccuracy;
+            _loadedGame.WhiteAccuracy = wa;
+            _loadedGame.BlackAccuracy = ba;
         }
+    }
+
+    private void UpdateMoveListQualities()
+    {
+        // Assign quality labels to each move based on ChartData diffs
+        var updated = new List<MoveEntry>();
+        for (int i = 0; i < _moveList.Count; i++)
+        {
+            int chartIdx = i + 1;
+            string quality = "Best";
+            if (chartIdx < ChartData.Count && chartIdx > 0)
+            {
+                double prevEval = ChartData[chartIdx - 1];
+                double currEval = ChartData[chartIdx];
+                double diff = (i % 2 == 0) ? (currEval - prevEval) : (prevEval - currEval);
+                quality = diff >= 0.0 ? "Best"
+                    : diff > -0.2 ? "Excellent"
+                    : diff > -0.5 ? "Good"
+                    : diff > -1.0 ? "Inaccuracy"
+                    : diff > -2.0 ? "Mistake"
+                    : "Blunder";
+            }
+            updated.Add(new MoveEntry(_moveList[i].San, quality));
+        }
+        _moveList = updated;
     }
 
     private (double WhiteAccuracy, double BlackAccuracy) CalculateAccuracy()
     {
-        // Simple accuracy estimate: each half-move's centipawn loss (relative to
-        // the previous evaluation) reduces a 100% baseline. This mirrors the
-        // move-quality buckets used in CalculateMoveQualities, just expressed
-        // as a single percentage per side.
-        double whiteLossSum = 0;
-        double blackLossSum = 0;
-        int whiteMoves = 0;
-        int blackMoves = 0;
+        double whiteLossSum = 0, blackLossSum = 0;
+        int whiteMoves = 0, blackMoves = 0;
 
         for (int i = 1; i < ChartData.Count; i++)
         {
@@ -311,125 +930,78 @@
             double diff = (i % 2 != 0) ? (currEval - prevEval) : (prevEval - currEval);
             double loss = diff < 0 ? -diff : 0;
 
-            if (i % 2 != 0)
-            {
-                whiteLossSum += loss;
-                whiteMoves++;
-            }
-            else
-            {
-                blackLossSum += loss;
-                blackMoves++;
-            }
+            if (i % 2 != 0) { whiteLossSum += loss; whiteMoves++; }
+            else             { blackLossSum += loss; blackMoves++; }
         }
 
-        double whiteAccuracy = whiteMoves == 0 ? 100.0 : Math.Clamp(100.0 - (whiteLossSum / whiteMoves) * 25.0, 0, 100);
-        double blackAccuracy = blackMoves == 0 ? 100.0 : Math.Clamp(100.0 - (blackLossSum / blackMoves) * 25.0, 0, 100);
-
-        return (Math.Round(whiteAccuracy, 2), Math.Round(blackAccuracy, 2));
+        double wa = whiteMoves == 0 ? 100.0 : Math.Clamp(100.0 - (whiteLossSum / whiteMoves) * 25.0, 0, 100);
+        double ba = blackMoves == 0 ? 100.0 : Math.Clamp(100.0 - (blackLossSum / blackMoves) * 25.0, 0, 100);
+        return (Math.Round(wa, 1), Math.Round(ba, 1));
     }
 
     private void CalculateMoveQualities()
     {
         ResetQualities();
-        // ChartData contains evaluation after each move.
-        // Index 0 is starting position, Index 1 is after move 1 (White), Index 2 is after move 2 (Black), etc.
         for (int i = 1; i < ChartData.Count; i++)
         {
             double prevEval = ChartData[i - 1];
             double currEval = ChartData[i];
-            
-            // Calculate difference from the perspective of the player who just moved
-            // If White moved (i is odd), White wants currEval to be higher. diff = currEval - prevEval. Wait.
-            // Actually, if White moves, a drop in evaluation is bad for White.
-            // If Black moves (i is even), a rise in evaluation is bad for Black.
-            // Since ChartData is always from White's perspective (+ means White is winning):
             double diff = (i % 2 != 0) ? (currEval - prevEval) : (prevEval - currEval);
-            
-            if (diff >= 0.0)
-            {
-                MoveQualities["Best"]++;
-            }
-            else if (diff > -0.2)
-            {
-                MoveQualities["Excellent"]++;
-            }
-            else if (diff > -0.5)
-            {
-                MoveQualities["Good"]++;
-            }
-            else if (diff > -1.0)
-            {
-                MoveQualities["Inaccuracy"]++;
-            }
-            else if (diff > -2.0)
-            {
-                MoveQualities["Mistake"]++;
-            }
-            else
-            {
-                MoveQualities["Blunder"]++;
-            }
+
+            string bucket = diff >= 0.0 ? "Best"
+                : diff > -0.2 ? "Excellent"
+                : diff > -0.5 ? "Good"
+                : diff > -1.0 ? "Inaccuracy"
+                : diff > -2.0 ? "Mistake"
+                : "Blunder";
+
+            bool isWhiteMove = (i % 2 != 0);
+            if (isWhiteMove) MoveQualitiesWhite[bucket]++;
+            else             MoveQualitiesBlack[bucket]++;
         }
     }
 
     [JSInvokable]
     public void OnMoveChanged(int moveIndex)
     {
+        _currentMoveIndex = moveIndex;
         StateHasChanged();
     }
 
     [JSInvokable]
     public void OnEvaluationReceived(int moveIndex, JsonElement evalObj)
     {
-        if (evalObj.TryGetProperty("type", out var typeProp) && evalObj.TryGetProperty("value", out var valProp))
-        {
-            string type = typeProp.GetString() ?? "cp";
-            int val = valProp.GetInt32();
-            bool isWhiteToMove = true;
-            if (evalObj.TryGetProperty("isWhiteToMove", out var whiteMoveProp))
-            {
-                isWhiteToMove = whiteMoveProp.GetBoolean();
-            }
-            
-            // Stockfish returns score from the side to move's perspective.
-            // We want positive values for White winning, negative for Black.
-            if (!isWhiteToMove)
-            {
-                val = -val;
-            }
-            
-            double score = type == "cp" ? Math.Round(val / 100.0, 2) : (val > 0 ? 10.0 : -10.0);
-            
-            // Update chart data for the current move index
-            int idx = moveIndex + 1; // moveIndex -1 is starting pos, index 0
-            while (ChartData.Count <= idx) 
-            {
-                ChartData.Add(0);
-            }
-            ChartData[idx] = score;
-            
-            UpdateChart();
-            
-            // Only update current evaluation text if this is the current move on the board
-            // Wait, we need to check if we are analyzing all.
-            // But we don't know that here directly. We can just update it, it will flicker quickly during analysis.
-            if (type == "mate")
-            {
-                CurrentEvaluation = $"M{Math.Abs(val)} ({(val > 0 ? "Белые" : "Черные")} выигрывают)";
-            }
-            else
-            {
-                CurrentEvaluation = (score > 0 ? "+" : "") + score.ToString("0.00");
-            }
-            
-            StateHasChanged();
-        }
+        if (!evalObj.TryGetProperty("type", out var typeProp) || !evalObj.TryGetProperty("value", out var valProp))
+            return;
+
+        string type = typeProp.GetString() ?? "cp";
+        int val = valProp.GetInt32();
+        bool isWhiteToMove = true;
+        if (evalObj.TryGetProperty("isWhiteToMove", out var wp))
+            isWhiteToMove = wp.GetBoolean();
+
+        if (!isWhiteToMove) val = -val;
+
+        double score = type == "cp" ? Math.Round(val / 100.0, 2) : (val > 0 ? 10.0 : -10.0);
+
+        int idx = moveIndex + 1;
+        while (ChartData.Count <= idx) ChartData.Add(0);
+        ChartData[idx] = score;
+
+        UpdateChart();
+
+        if (type == "mate")
+            CurrentEvaluation = $"М{Math.Abs(val)} ({(val > 0 ? "Белые" : "Чёрные")} выигрывают)";
+        else
+            CurrentEvaluation = (score > 0 ? "+" : "") + score.ToString("0.00");
+
+        StateHasChanged();
     }
 
     private void UpdateChart()
     {
-        ChartLabels = Enumerable.Range(0, Math.Max(1, ChartData.Count)).Select(i => i.ToString()).ToArray();
+        // Empty labels — no move numbers on X axis
+        _emptyLabels = new string[Math.Max(1, ChartData.Count)];
         ChartSeries = new List<ChartSeries>
         {
             new ChartSeries { Name = "Оценка", Data = ChartData.ToArray() }
@@ -438,16 +1010,8 @@
 
     public async ValueTask DisposeAsync()
     {
-        try
-        {
-            await JS.InvokeVoidAsync("analysisBridge.destroy");
-        }
-        catch (JSDisconnectedException)
-        {
-        }
-
+        try { await JS.InvokeVoidAsync("analysisBridge.destroy"); }
+        catch (JSDisconnectedException) { }
         objRef?.Dispose();
     }
 }
-
-

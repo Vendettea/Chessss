@@ -136,7 +136,7 @@
             await Db.SaveChangesAsync();
             _selectedTagForAction = null;
             await LoadData();
-            Snackbar.Add("Тег удален из базы и всех гайдов", Severity.Error);
+            Snackbar.Add("Тег удален из базы и всех учебных материалов", Severity.Error);
         }
     }
 
@@ -162,7 +162,7 @@
         var parameters = new DialogParameters { ["AvailableTags"] = _allTags, ["Model"] = modelToEdit };
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
 
-        var dialog = await DialogService.ShowAsync<AddMaterialDialog>(isEditing ? "Редактировать гайд" : "Новый гайд", parameters, options);
+        var dialog = await DialogService.ShowAsync<AddMaterialDialog>(isEditing ? "Редактировать учебный материал" : "Новый учебный материал", parameters, options);
         var result = await dialog.Result;
 
         if (!result.Canceled)
@@ -192,14 +192,14 @@
             }
             else
             {
-                // Сохранение нового гайда
+                // Сохранение нового учебного материала
                 savedMaterial.Tags = selectedTags;
                 Db.TrainingMaterials.Add(savedMaterial);
             }
 
             await Db.SaveChangesAsync();
             await LoadData();
-            Snackbar.Add(isEditing ? "Гайд успешно обновлен!" : "Гайд успешно добавлен!", Severity.Success);
+            Snackbar.Add(isEditing ? "Учебный материал успешно обновлен!" : "Учебный материал успешно добавлен!", Severity.Success);
         }
     }
 

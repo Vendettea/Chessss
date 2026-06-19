@@ -9,7 +9,7 @@
 
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h6">@(Model.Id == 0 ? "Новый обучающий гайд" : "Редактирование гайда")</MudText>
+        <MudText Typo="Typo.h6">@(Model.Id == 0 ? "Новый обучающий материал" : "Редактирование учебного материала")</MudText>
     </TitleContent>
     <DialogContent>
         <MudStack Spacing="3">
@@ -172,7 +172,7 @@
             if (!string.IsNullOrWhiteSpace(oldPath) && System.IO.File.Exists(oldPath))
             {
                 try { System.IO.File.Delete(oldPath); }
-                catch { /* файл может быть использован другим гайдом */ }
+                catch { /* файл может быть использован другим учебным материалом */ }
             }
         }
 
