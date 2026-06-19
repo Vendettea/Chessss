@@ -9,6 +9,7 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject UserProfileChangeNotifier ProfileNotifier
 
+
 <MudThemeProvider @bind-IsDarkMode="_isDarkMode" Theme="_theme" />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -26,7 +27,6 @@
                 {
                     <span class="sidebar-brand__copy">
                         <span class="sidebar-brand__title">UltraChess</span>
-                        <span class="sidebar-brand__subtitle">Играй, анализируй, расти</span>
                     </span>
                 }
             </button>
@@ -45,7 +45,7 @@
                 <MudNavLink Href="/playwithai" Icon="@Icons.Material.Filled.SmartToy">Играть с ИИ</MudNavLink>
                 <MudNavLink Href="/analysis" Icon="@Icons.Material.Filled.Search">Анализ партии</MudNavLink>
                 <MudNavLink Href="/training" Icon="@Icons.Material.Filled.School">Обучение</MudNavLink>
-                <MudNavLink Href="/leaderboard" Icon="@Icons.Material.Filled.Leaderboard">Лидерборд</MudNavLink>
+                <MudNavLink Href="/leaderboard" Icon="@Icons.Material.Filled.Leaderboard">Таблица лидеров</MudNavLink>
                 <MudNavLink Href="/my-games" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Мои партии</MudNavLink>
                 <MudNavLink Href="/admin/training" Icon="@Icons.Material.Filled.AdminPanelSettings">Админка</MudNavLink>
             </MudNavMenu>
@@ -77,12 +77,7 @@
                         </div>
                     }
 
-                    <form method="post" action="/logout" class="sidebar-account__logout" @onclick:stopPropagation="true">
-                        <AntiforgeryToken />
-                        <button type="submit" class="logout-button" title="Выйти">
-                            <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Small" />
-                        </button>
-                    </form>
+                   
                 </div>
             }
             else
@@ -112,6 +107,8 @@
         </div>
     </main>
 </div>
+
+
 
 @code {
     [CascadingParameter]

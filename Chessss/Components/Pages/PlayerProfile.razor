@@ -19,10 +19,6 @@
     else
     {
         <MudStack Spacing="3">
-            <div class="player-profile-heading">
-                <MudText Typo="Typo.h3">@_profile.Nickname</MudText>
-                <MudText Typo="Typo.body1" Class="player-muted">Публичный профиль игрока UltraChess</MudText>
-            </div>
 
             <MudPaper Elevation="0" Class="public-profile-card player-profile-hero">
                 <div class="player-profile-hero__head">
@@ -33,48 +29,47 @@
                     <div class="player-profile-hero__copy">
                         <MudText Typo="Typo.h4">@_profile.Nickname</MudText>
                         <MudText Typo="Typo.body2" Class="player-muted">В рейтинге: @(_profile.Rank?.ToString() ?? "пока нет")</MudText>
-                        <MudText Typo="Typo.caption" Class="player-muted">Публичный доступ без email и внутренних данных.</MudText>
                     </div>
                 </div>
 
                 <div class="responsive-grid player-profile-stats">
-                    <div class="stats-card">
-                        <span>Elo / рейтинг</span>
+                    <div class="stats-card profile-stat">
+                        <span>Рейтинг Elo</span>
                         <strong>@_profile.EloRating</strong>
                     </div>
-                    <div class="stats-card">
+                    <div class="stats-card profile-stat">
                         <span>Место в рейтинге</span>
                         <strong>@(_profile.Rank?.ToString() ?? "—")</strong>
                     </div>
-                    <div class="stats-card">
+                    <div class="stats-card profile-stat">
                         <span>Макс. уровень ИИ</span>
                         <strong>@_profile.MaxAIDifficultyText</strong>
                     </div>
-                    <div class="stats-card">
+                    <div class="stats-card profile-stat">
                         <span>Сыграно партий</span>
                         <strong>@_profile.GamesPlayed</strong>
                     </div>
-                    <div class="stats-card">
+                    <div class="stats-card profile-stat">
                         <span>Победы</span>
                         <strong>@_profile.Wins</strong>
                     </div>
-                    <div class="stats-card">
+                   <div class="stats-card profile-stat">
                         <span>Поражения</span>
                         <strong>@_profile.Losses</strong>
                     </div>
-                    <div class="stats-card">
+                    <div class="stats-card profile-stat">
                         <span>Ничьи</span>
                         <strong>@_profile.Draws</strong>
                     </div>
-                    <div class="stats-card">
+                    <div class="stats-card profile-stat">
                         <span>Win rate</span>
                         <strong>@_profile.WinRateText</strong>
                     </div>
-                    <div class="stats-card">
+                    <div class="stats-card profile-stat">
                         <span>Средняя точность</span>
                         <strong>@_profile.AverageAccuracyText</strong>
                     </div>
-                    <div class="stats-card">
+                    <div class="stats-card profile-stat">
                         <span>Дата регистрации</span>
                         <strong>@_profile.RegisteredAt.ToLocalTime().ToString("dd.MM.yyyy")</strong>
                     </div>
@@ -85,7 +80,7 @@
                        Variant="Variant.Outlined"
                        Color="Color.Success"
                        StartIcon="@Icons.Material.Filled.Leaderboard">
-                К лидерборду
+                К таблице лидеров
             </MudButton>
         </MudStack>
     }

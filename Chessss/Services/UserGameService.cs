@@ -22,6 +22,41 @@ namespace Chessss.Services
             _db = db;
         }
 
+        public async Task<UserGame?> GetUserGameAsync(string userId, int id, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return null;
+            }
+
+            return await _db.UserGames
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId, cancellationToken);
+        }
+
+        public async Task<bool> SaveAnalysisResultAsync(int id, string userId, double whiteAccuracy, double blackAccuracy, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return false;
+            }
+
+            var game = await _db.UserGames
+                .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId, cancellationToken);
+
+            if (game is null)
+            {
+                return false;
+            }
+
+            game.IsAnalyzed = true;
+            game.WhiteAccuracy = whiteAccuracy;
+            game.BlackAccuracy = blackAccuracy;
+
+            await _db.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+
         public Task<PaginatedResult<UserGame>> GetUserGamesAsync(string userId, int page, int pageSize)
         {
             return GetUserGamesAsync(userId, page, pageSize, CancellationToken.None);
@@ -414,3 +449,5 @@ namespace Chessss.Services
         }
     }
 }
+
+

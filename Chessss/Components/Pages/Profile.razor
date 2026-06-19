@@ -30,10 +30,14 @@
     else
     {
         <MudStack Spacing="3">
-            <div class="profile-page__heading">
-                <MudText Typo="Typo.h3">Профиль</MudText>
-                <MudText Typo="Typo.body2" Class="profile-muted">Личная карточка игрока UltraChess</MudText>
-            </div>
+            <div class="profile-page__heading d-flex justify-space-between align-center w-100">
+    <MudText Typo="Typo.h3">Профиль</MudText>
+    <form action="Account/Logout" method="post">
+        <AntiforgeryToken />
+        <input type="hidden" name="ReturnUrl" value="/" />
+        
+    </form>
+</div>
 
             @if (!string.IsNullOrWhiteSpace(_statusMessage))
             {
@@ -50,15 +54,12 @@
                     <div class="profile-hero-card__copy">
                         <MudText Typo="Typo.h4">@_profile.Nickname</MudText>
                         <MudText Typo="Typo.body2" Class="profile-muted">@_profile.Email</MudText>
-                        <MudText Typo="Typo.caption" Class="profile-hero-card__caption">
-                            Рейтинг, прогресс и история побед в одном месте.
-                        </MudText>
                     </div>
                 </div>
 
                 <div class="responsive-grid profile-stats-grid">
                     <div class="stats-card profile-stat">
-                        <span>Elo / рейтинг</span>
+                        <span>Рейтинг Elo</span>
                         <strong>@_profile.EloRating</strong>
                     </div>
                     <div class="stats-card profile-stat">
@@ -96,6 +97,10 @@
                     <div class="stats-card profile-stat">
                         <span>Партии в архиве</span>
                         <strong>@_profile.ArchivedGamesCount</strong>
+                    </div>
+                    <div class="stats-card profile-stat">
+                        <span>Дата регистрации</span>
+                        <strong>@_profile.RegisteredAt.ToLocalTime().ToString("dd.MM.yyyy")</strong>
                     </div>
                 </div>
             </MudPaper>
@@ -149,14 +154,20 @@
                         Удалить аватар
                     </MudButton>
                 </div>
-
-                <MudText Typo="Typo.caption" Class="profile-meta-line">
-                    Дата регистрации: @_profile.RegisteredAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
-                </MudText>
             </MudPaper>
         </MudStack>
+
+        
     }
 </div>
+
+<style>
+    .profile-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+</style>
 
 @code {
     [CascadingParameter]

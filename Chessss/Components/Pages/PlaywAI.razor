@@ -18,6 +18,8 @@
 
 <PageTitle>UltraChess - Игра с ИИ</PageTitle>
 
+
+
 <div class="play-ai-page page-shell">
     <div class="play-ai-stage">
         <div class="play-ai-layout chess-layout">
@@ -90,7 +92,7 @@
                         <div class="play-ai-panel-head">
                             <MudText Typo="Typo.h5">Новая партия</MudText>
                             <MudText Typo="Typo.body2" Class="play-ai-muted">
-                                Выберите уровень бота и сторону, затем начните игру.
+                                Выберите уровень ИИ и сторону, затем начните игру.
                             </MudText>
                         </div>
 
@@ -102,7 +104,7 @@
                             @foreach (var option in DifficultyOptions)
                             {
                                 <MudSelectItem T="int" Value="@option.Level">
-                                    Уровень @option.Level — @option.Name
+                                    Уровень @option.Level - @option.Name
                                 </MudSelectItem>
                             }
                         </MudSelect>
@@ -247,6 +249,10 @@
 </div>
 
 <style>
+html {
+  overflow: hidden;
+}
+
     .play-ai-promotion-overlay {
         position: absolute;
         inset: 0;
@@ -1542,7 +1548,7 @@
             ? $"{option.MoveTimeMs / 1000.0:0.#} сек."
             : $"{option.MoveTimeMs} мс";
 
-        return $"{option.Description} Диапазон силы: {option.EloMin}–{option.EloMax} Elo. Время на ход: около {timeText}";
+        return $"{option.Description} Диапазон силы: {option.EloMin}–{option.EloMax} Elo. Время на ход: ~ {timeText}";
     }
 
     private static string FormatCount(int count, string one, string few, string many)

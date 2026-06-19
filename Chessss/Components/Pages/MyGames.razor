@@ -96,7 +96,7 @@
                 <MudTd DataLabel="Дата">@context.PlayedAt.ToString("dd.MM.yyyy")</MudTd>
                 <MudTd DataLabel="Источник">@context.Source</MudTd>
                 <MudTd DataLabel="Анализ">
-                    <MudLink Href="@($"/analyze/{context.Id}")">
+                    <MudLink Href="@($"/analysis/{context.Id}")">
                         @(context.IsAnalyzed ? "Да" : "Нет")
                     </MudLink>
                 </MudTd>
@@ -115,6 +115,10 @@
 </MudContainer>
 
 <style>
+    html {
+        overflow: hidden;
+    }   
+
     .my-games-page {
         max-width: 100%;
         min-height: calc(100dvh - 2rem);

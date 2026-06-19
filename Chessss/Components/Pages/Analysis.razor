@@ -1,6 +1,13 @@
 @page "/analysis"
+@page "/analysis/{Id:int}"
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
 @using Microsoft.JSInterop
+@using Chessss.Models
+@using Chessss.Services
 @inject IJSRuntime JS
+@inject UserManager<ApplicationUser> UserManager
+@inject UserGameService UserGameService
 @using System.Text.Json
 @implements IAsyncDisposable
 
@@ -105,6 +112,9 @@
 </style>
 
 @code {
+    [Parameter] public int? Id { get; set; }
+    [CascadingParameter] private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
     private string PgnInput { get; set; } = "";
     private string CurrentEvaluation { get; set; } = "0.0";
     private bool IsAnalyzing { get; set; } = false;
@@ -120,6 +130,8 @@
     private List<double> ChartData = new();
     private string[] ChartLabels = Array.Empty<string>();
     private List<ChartSeries> ChartSeries = new();
+    private string? _userId;
+    private UserGame? _loadedGame;
     
     private Dictionary<string, int> MoveQualities = new()
     {
@@ -137,6 +149,21 @@
         return StockfishEngineLabel;
     }
 
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthenticationStateTask is null)
+        {
+            return;
+        }
+
+        var authState = await AuthenticationStateTask;
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            var user = await UserManager.GetUserAsync(authState.User);
+            _userId = user?.Id;
+        }
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -144,12 +171,55 @@
             objRef = DotNetObjectReference.Create(this);
             _selectedEngineKey = StockfishEngineKey;
             _boardReady = await JS.InvokeAsync<bool>("analysisBridge.init", objRef, StockfishEngineKey);
-            _engineStatusText = _boardReady
-                ? "Доска готова. Загрузите PGN и нажмите «Начать анализ»."
-                : "Не удалось подготовить доску анализа.";
+
+            if (!_boardReady)
+            {
+                _engineStatusText = "Не удалось подготовить доску анализа.";
+                StateHasChanged();
+                return;
+            }
+
+            if (Id.HasValue)
+            {
+                await LoadSavedGameAsync(Id.Value);
+            }
+            else
+            {
+                _engineStatusText = "Доска готова. Загрузите PGN и нажмите «Начать анализ».";
+            }
+
             UpdateChart();
             StateHasChanged();
         }
+    }
+
+    private async Task LoadSavedGameAsync(int id)
+    {
+        if (string.IsNullOrWhiteSpace(_userId))
+        {
+            _engineStatusText = "Войдите в аккаунт, чтобы открыть сохранённую партию.";
+            return;
+        }
+
+        var game = await UserGameService.GetUserGameAsync(_userId, id);
+
+        if (game is null || string.IsNullOrWhiteSpace(game.PgnContent))
+        {
+            _engineStatusText = "Партия не найдена.";
+            return;
+        }
+
+        _loadedGame = game;
+        PgnInput = game.PgnContent;
+
+        ResetQualities();
+        ChartData.Clear();
+        CurrentEvaluation = "0.0";
+
+        var loaded = await JS.InvokeAsync<bool>("analysisBridge.loadPgn", PgnInput);
+        _engineStatusText = loaded
+            ? $"Партия {game.WhitePlayer} — {game.BlackPlayer} загружена. Нажмите «Начать анализ»."
+            : "Не удалось разобрать PGN этой партии.";
     }
 
     private async Task LoadPgn()
@@ -207,11 +277,56 @@
     }
 
     [JSInvokable]
-    public void OnAnalysisComplete()
+    public async Task OnAnalysisComplete()
     {
         IsAnalyzing = false;
         CalculateMoveQualities();
         StateHasChanged();
+
+        if (_loadedGame is not null && !string.IsNullOrWhiteSpace(_userId))
+        {
+            var (whiteAccuracy, blackAccuracy) = CalculateAccuracy();
+            await UserGameService.SaveAnalysisResultAsync(_loadedGame.Id, _userId, whiteAccuracy, blackAccuracy);
+            _loadedGame.IsAnalyzed = true;
+            _loadedGame.WhiteAccuracy = whiteAccuracy;
+            _loadedGame.BlackAccuracy = blackAccuracy;
+        }
+    }
+
+    private (double WhiteAccuracy, double BlackAccuracy) CalculateAccuracy()
+    {
+        // Simple accuracy estimate: each half-move's centipawn loss (relative to
+        // the previous evaluation) reduces a 100% baseline. This mirrors the
+        // move-quality buckets used in CalculateMoveQualities, just expressed
+        // as a single percentage per side.
+        double whiteLossSum = 0;
+        double blackLossSum = 0;
+        int whiteMoves = 0;
+        int blackMoves = 0;
+
+        for (int i = 1; i < ChartData.Count; i++)
+        {
+            double prevEval = ChartData[i - 1];
+            double currEval = ChartData[i];
+            double diff = (i % 2 != 0) ? (currEval - prevEval) : (prevEval - currEval);
+            double loss = diff < 0 ? -diff : 0;
+
+            if (i % 2 != 0)
+            {
+                whiteLossSum += loss;
+                whiteMoves++;
+            }
+            else
+            {
+                blackLossSum += loss;
+                blackMoves++;
+            }
+        }
+
+        double whiteAccuracy = whiteMoves == 0 ? 100.0 : Math.Clamp(100.0 - (whiteLossSum / whiteMoves) * 25.0, 0, 100);
+        double blackAccuracy = blackMoves == 0 ? 100.0 : Math.Clamp(100.0 - (blackLossSum / blackMoves) * 25.0, 0, 100);
+
+        return (Math.Round(whiteAccuracy, 2), Math.Round(blackAccuracy, 2));
     }
 
     private void CalculateMoveQualities()
@@ -334,3 +449,5 @@
         objRef?.Dispose();
     }
 }
+
+

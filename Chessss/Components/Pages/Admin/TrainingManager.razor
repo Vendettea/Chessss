@@ -4,6 +4,7 @@
 @using Chessss.Models
 @using Chessss.Data
 @using Microsoft.EntityFrameworkCore
+@using MudBlazor.Charts
 @inject ApplicationDbContext Db
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
@@ -210,6 +211,12 @@
         Snackbar.Add("Материал удален", Severity.Warning);
     }
 }
+
+<style>
+    html {
+  overflow: hidden;
+}
+</style>
 
 @* dotnet ef migrations add InitialCreate
 dotnet ef database update *@

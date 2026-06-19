@@ -10,6 +10,11 @@ window.analysisBridge = {
     currentMoveIndex: -1,
     history: [],
     evaluations: [],
+    isAnalyzingAll: false,
+    currentAnalysisIndex: -1,
+    searchInFlight: false,
+    activeRequest: null,
+    pendingRequest: null,
 
     init: async function (dotNetRef, engineKey) {
         this.dotNetRef = dotNetRef;
@@ -46,7 +51,7 @@ window.analysisBridge = {
             this.engineReady = false;
             this.engineInitError = e?.message || 'Stockfish не загрузился.';
             console.error("Error loading stockfish: ", e);
-            return true;
+            return false;
         }
     },
 
@@ -81,6 +86,9 @@ window.analysisBridge = {
         this.engineReady = false;
         this.engineInitError = null;
         this.engineVariant = normalizedEngineKey;
+        this.searchInFlight = false;
+        this.activeRequest = null;
+        this.pendingRequest = null;
 
         try {
             this.stockfish = await window.stockfishRuntime.createEngine({
@@ -111,6 +119,9 @@ window.analysisBridge = {
             this.history = this.game.history({ verbose: true });
             this.currentMoveIndex = -1;
             this.evaluations = new Array(this.history.length).fill(null);
+            this.isAnalyzingAll = false;
+            this.currentAnalysisIndex = -1;
+            this.pendingRequest = null;
             this.updateBoard();
             return true;
         }
@@ -138,22 +149,51 @@ window.analysisBridge = {
             tempGame.move(this.history[i]);
         }
         this.board.position(tempGame.fen());
-        
+
+        // Manual navigation cancels any in-flight "analyze all" run so the
+        // two flows never fight over the same engine instance.
+        this.isAnalyzingAll = false;
+
         // Request evaluation for this fen
-        this.evaluatePosition(tempGame.fen());
-        
+        this.evaluatePosition(tempGame.fen(), this.currentMoveIndex);
+
         // Notify Blazor about the move index update
         if (this.dotNetRef) {
             this.dotNetRef.invokeMethodAsync('OnMoveChanged', this.currentMoveIndex);
         }
     },
-    
-    evaluatePosition: function(fen) {
-        if (this.stockfish && this.engineReady) {
-            this.stockfish.postMessage("position fen " + fen);
-            this.stockfish.postMessage("go depth 15");
+
+    // Sends a position+go request to the engine. If a previous search is
+    // still running, it is stopped first and this request is queued to run
+    // once that search's bestmove arrives. This keeps the UCI command
+    // sequence valid: Stockfish must never receive a new "position"/"go"
+    // while it is still thinking about the previous one.
+    evaluatePosition: function(fen, requestIndex) {
+        if (!this.stockfish || !this.engineReady) {
+            return;
         }
+
+        const request = { fen: fen, index: requestIndex, mode: 'single' };
+
+        if (this.searchInFlight) {
+            this.pendingRequest = request;
+            try {
+                this.stockfish.postMessage('stop');
+            } catch {
+            }
+            return;
+        }
+
+        this.runSearch(request, 15);
     },
+
+    runSearch: function (request, depth) {
+        this.searchInFlight = true;
+        this.activeRequest = request;
+        this.stockfish.postMessage('position fen ' + request.fen);
+        this.stockfish.postMessage('go depth ' + depth);
+    },
+
 
     analyzeAllMoves: async function(engineKey) {
         if (!this.history || this.history.length === 0) {
@@ -168,70 +208,104 @@ window.analysisBridge = {
         }
 
         this.stockfish.postMessage("ucinewgame");
-        
+
         // Reset evaluations
         this.evaluations = new Array(this.history.length).fill(null);
-        
+
         // Start sequential analysis from start pos
         this.isAnalyzingAll = true;
         this.currentAnalysisIndex = -1;
-        this.analyzeMove(this.currentAnalysisIndex);
+        this.pendingRequest = null;
+
+        const startRequest = { index: this.currentAnalysisIndex, mode: 'all' };
+
+        if (this.searchInFlight) {
+            // A manual single-position search is still running; stop it and
+            // let the engine's "bestmove" handler pick up this request next.
+            this.pendingRequest = startRequest;
+            try {
+                this.stockfish.postMessage('stop');
+            } catch {
+            }
+        } else {
+            this.analyzeMove(startRequest);
+        }
+
         return true;
     },
 
-    analyzeMove: function(index) {
+    analyzeMove: function(request) {
         var tempGame = new Chess();
-        for (let i = 0; i <= index; i++) {
-            if (i >= 0) tempGame.move(this.history[i]);
+        for (let i = 0; i <= request.index; i++) {
+            tempGame.move(this.history[i]);
         }
-        if (this.stockfish) {
-            this.stockfish.postMessage("position fen " + tempGame.fen());
-            this.stockfish.postMessage("go depth 12");
-        }
+        request.fen = tempGame.fen();
+        this.runSearch(request, 12);
     },
 
     handleStockfishMessage: function(line) {
         // Parse evaluation
         // Looking for lines like "info depth 15 ... score cp 35 ..."
         // or "score mate 3"
-        if (line.includes("info") && line.includes("score")) {
+        if (line.includes("info") && line.includes("score") && this.activeRequest) {
             let parts = line.split(" ");
             let scoreIndex = parts.indexOf("score");
             if (scoreIndex !== -1 && scoreIndex + 2 < parts.length) {
                 let type = parts[scoreIndex + 1]; // "cp" or "mate"
                 let value = parseInt(parts[scoreIndex + 2]);
-                
-                let indexToUpdate = this.isAnalyzingAll ? this.currentAnalysisIndex : this.currentMoveIndex;
-                
+
+                let indexToUpdate = this.activeRequest.index;
+
                 // Determine whose turn it is from the current tempGame FEN
                 let tempGame = new Chess();
                 for (let i = 0; i <= indexToUpdate; i++) {
                     if (i >= 0) tempGame.move(this.history[i]);
                 }
                 let isWhiteToMove = tempGame.turn() === 'w';
-                
+
                 // Keep the latest evaluation (depth increases)
                 let evalObj = { type: type, value: value, raw: line, isWhiteToMove: isWhiteToMove };
-                
+
                 if (this.dotNetRef) {
                     this.dotNetRef.invokeMethodAsync('OnEvaluationReceived', indexToUpdate, evalObj);
                 }
             }
         }
         if (line.startsWith("bestmove")) {
-             // Evaluation finished for current request
-             if (this.isAnalyzingAll) {
-                 this.currentAnalysisIndex++;
-                 if (this.currentAnalysisIndex < this.history.length) {
-                     this.analyzeMove(this.currentAnalysisIndex);
-                 } else {
-                     this.isAnalyzingAll = false;
-                     if (this.dotNetRef) {
-                         this.dotNetRef.invokeMethodAsync('OnAnalysisComplete');
-                     }
-                  }
-              }
-         }
+            // The search we issued has finished (either naturally or via "stop").
+            const finishedRequest = this.activeRequest;
+            this.searchInFlight = false;
+            this.activeRequest = null;
+
+            // If something queued a newer request while we were searching
+            // (e.g. "Начать анализ" pressed while a manual hover-eval was
+            // running), run that one now instead of continuing the old flow.
+            if (this.pendingRequest) {
+                const next = this.pendingRequest;
+                this.pendingRequest = null;
+
+                if (next.mode === 'all') {
+                    this.isAnalyzingAll = true;
+                    this.currentAnalysisIndex = next.index;
+                    this.analyzeMove(next);
+                } else {
+                    this.runSearch(next, 15);
+                }
+                return;
+            }
+
+            if (finishedRequest && finishedRequest.mode === 'all' && this.isAnalyzingAll) {
+                this.currentAnalysisIndex++;
+                if (this.currentAnalysisIndex < this.history.length) {
+                    this.analyzeMove({ index: this.currentAnalysisIndex, mode: 'all' });
+                } else {
+                    this.isAnalyzingAll = false;
+                    if (this.dotNetRef) {
+                        this.dotNetRef.invokeMethodAsync('OnAnalysisComplete');
+                    }
+                }
+            }
+        }
     },
 
     destroy: function () {
@@ -265,5 +339,9 @@ window.analysisBridge = {
         this.evaluations = [];
         this.currentMoveIndex = -1;
         this.isAnalyzingAll = false;
+        this.currentAnalysisIndex = -1;
+        this.searchInFlight = false;
+        this.activeRequest = null;
+        this.pendingRequest = null;
     }
 };
