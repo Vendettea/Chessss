@@ -114,11 +114,6 @@
                             <MudText Typo="Typo.body2">@GetDifficultyDescription(_selectedDifficulty)</MudText>
                         </div>
 
-                        <div class="play-ai-difficulty-card">
-                        <MudText Typo="Typo.subtitle2">Движок</MudText>
-                        <MudText Typo="Typo.body2">Stockfish 18 Lite</MudText>
-                        </div>
-
                         <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-3">
                             @_statusText
                         </MudAlert>
@@ -149,10 +144,6 @@
                                     Чёрные
                                 </button>
                             </div>
-
-                            <MudText Typo="Typo.caption" Class="play-ai-muted">
-                                @GetSelectedSideHint()
-                            </MudText>
                         </div>
 
                         <MudButton Variant="Variant.Filled"
@@ -1327,15 +1318,6 @@
             : "play-ai-side-option";
     }
 
-    private string GetSelectedSideHint()
-    {
-        return _selectedSide switch
-        {
-            SideChoice.White => "Вы играете белыми, доска будет ориентирована белыми снизу",
-            SideChoice.Black => "Вы играете чёрными, доска будет ориентирована чёрными снизу",
-            _ => "Сторона определится при старте партии"
-        };
-    }
 
     private void SelectSide(SideChoice side)
     {

@@ -30,13 +30,8 @@
     else
     {
         <MudStack Spacing="3">
-            <div class="profile-page__heading d-flex justify-space-between align-center w-100">
+            <div class="profile-page__heading">
     <MudText Typo="Typo.h3">Профиль</MudText>
-    <form action="Account/Logout" method="post">
-        <AntiforgeryToken />
-        <input type="hidden" name="ReturnUrl" value="/" />
-        
-    </form>
 </div>
 
             @if (!string.IsNullOrWhiteSpace(_statusMessage))
@@ -46,16 +41,31 @@
 
             <MudPaper Elevation="0" Class="profile-card profile-hero-card">
                 <div class="profile-hero-card__head">
-                    <UserAvatar AvatarUrl="@_profile.AvatarUrl"
-                                DisplayName="@_profile.Nickname"
-                                AvatarSize="Size.Large"
-                                Class="profile-hero-card__avatar" />
+    <UserAvatar AvatarUrl="@_profile.AvatarUrl"
+                DisplayName="@_profile.Nickname"
+                AvatarSize="Size.Large"
+                Class="profile-hero-card__avatar" />
 
-                    <div class="profile-hero-card__copy">
-                        <MudText Typo="Typo.h4">@_profile.Nickname</MudText>
-                        <MudText Typo="Typo.body2" Class="profile-muted">@_profile.Email</MudText>
-                    </div>
-                </div>
+    <div class="profile-hero-card__copy">
+        <MudText Typo="Typo.h4">@_profile.Nickname</MudText>
+        <MudText Typo="Typo.body2" Class="profile-muted">@_profile.Email</MudText>
+    </div>
+
+    <form action="Account/Logout"
+          method="post"
+          class="profile-logout-form">
+
+        <AntiforgeryToken />
+        <input type="hidden" name="ReturnUrl" value="/" />
+
+        <MudButton ButtonType="ButtonType.Submit"
+                   Variant="Variant.Filled"
+                   Color="Color.Error">
+            Выйти
+        </MudButton>
+
+    </form>
+</div>
 
                 <div class="responsive-grid profile-stats-grid">
                     <div class="stats-card profile-stat">
@@ -111,49 +121,59 @@
                     Ник обновляется сразу после сохранения. Аватар поддерживает jpg, jpeg, png и webp до 5 МБ.
                 </MudText>
 
-                <EditForm Model="_editModel" OnValidSubmit="SaveNicknameAsync">
-                    <DataAnnotationsValidator />
+                <div class="profile-settings-grid">
 
-                    <MudTextField @bind-Value="_editModel.Nickname"
-                                  Label="Никнейм"
-                                  Variant="Variant.Outlined"
-                                  For="@(() => _editModel.Nickname)"
-                                  Immediate="true"
-                                  Class="mb-2" />
+    <div>
+        <EditForm Model="_editModel" OnValidSubmit="SaveNicknameAsync">
+            <DataAnnotationsValidator />
 
-                    <MudText Typo="Typo.caption" Class="profile-muted d-block mb-4">
-                        3-20 символов: латинские буквы, цифры, _ и -
-                    </MudText>
+            <MudTextField @bind-Value="_editModel.Nickname"
+                          Label="Никнейм"
+                          Variant="Variant.Outlined"
+                          For="@(() => _editModel.Nickname)"
+                          Immediate="true"
+                          Class="mb-2" />
 
-                    <MudButton ButtonType="ButtonType.Submit"
-                               Variant="Variant.Filled"
-                               Color="Color.Success"
-                               Disabled="@_busy"
-                               FullWidth="true">
-                        Сохранить никнейм
-                    </MudButton>
-                </EditForm>
+            <MudText Typo="Typo.caption"
+                     Class="profile-muted d-block mb-4">
+                3-20 символов: латинские буквы, цифры, _ и -
+            </MudText>
 
-                <MudDivider Class="my-1" />
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Success"
+                       Disabled="@_busy"
+                       FullWidth="true">
+                Сохранить никнейм
+            </MudButton>
+        </EditForm>
+    </div>
 
-                <MudText Typo="Typo.h6">Аватар</MudText>
-                <div class="profile-upload-row">
-                    <div class="profile-upload-stack">
-                        <InputFile OnChange="HandleAvatarSelectedAsync"
-                                   accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-                                   class="profile-upload-input" />
-                        <MudText Typo="Typo.caption" Class="profile-meta-line">
-                            Только изображения. Старый файл удаляется автоматически после замены.
-                        </MudText>
-                    </div>
+    <div>
+        <MudText Typo="Typo.h6">Аватар</MudText>
 
-                    <MudButton Variant="Variant.Outlined"
-                               Color="Color.Error"
-                               Disabled="@(_busy || string.IsNullOrWhiteSpace(_currentUser?.AvatarUrl))"
-                               OnClick="DeleteAvatarAsync">
-                        Удалить аватар
-                    </MudButton>
-                </div>
+        <div class="profile-upload-row">
+            <div class="profile-upload-stack">
+                <InputFile OnChange="HandleAvatarSelectedAsync"
+                           accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                           class="profile-upload-input" />
+
+                <MudText Typo="Typo.caption"
+                         Class="profile-meta-line">
+                    Только изображения. Старый файл удаляется автоматически после замены.
+                </MudText>
+            </div>
+
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Error"
+                       Disabled="@(_busy || string.IsNullOrWhiteSpace(_currentUser?.AvatarUrl))"
+                       OnClick="DeleteAvatarAsync">
+                Удалить аватар
+            </MudButton>
+        </div>
+    </div>
+
+</div>
             </MudPaper>
         </MudStack>
 
@@ -162,10 +182,8 @@
 </div>
 
 <style>
-    .profile-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    html {
+  overflow: hidden;
 }
 </style>
 

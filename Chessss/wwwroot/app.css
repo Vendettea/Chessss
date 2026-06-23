@@ -22,6 +22,12 @@ img {
     max-width: 100%;
 }
 
+.profile-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
 .page-container {
     width: min(100%, 1600px);
     margin: 0 auto;
@@ -95,9 +101,13 @@ img {
 .profile-hero-card__head,
 .player-profile-hero__head {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 1rem 1.25rem;
     align-items: center;
+}
+
+.profile-logout-form {
+    justify-self: end;
 }
 
 .profile-hero-card__copy,
@@ -135,6 +145,19 @@ img {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+}
+
+.profile-settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .profile-settings-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .profile-upload-row {

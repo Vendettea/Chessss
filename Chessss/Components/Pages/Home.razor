@@ -5,11 +5,7 @@
 <div class="page-shell home-page">
     <section class="home-hero app-card">
         <div class="home-hero__copy">
-            <MudText Typo="Typo.overline" Class="home-hero__eyebrow">UltraChess</MudText>
             <MudText Typo="Typo.h2" Class="home-hero__title">Играй, анализируй и прокачивай шахматы в одном интерфейсе.</MudText>
-            <MudText Typo="Typo.body1" Class="home-hero__subtitle">
-                Сыграйте партию против Stockfish 18 Lite, разберите свои решения и соберите собственный шахматный профиль без перегруженных экранов.
-            </MudText>
 
             <div class="home-hero__actions">
                 <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Large" Href="/playwithai">
@@ -18,33 +14,22 @@
             </div>
         </div>
 
-        <div class="home-hero__panel">
-            <div class="home-hero__badge">20 уровней сложности</div>
-            <div class="home-hero__metric">
-                <span>Движок</span>
-                <strong>Stockfish 18 Lite</strong>
-            </div>
-            <div class="home-hero__metric">
-                <span>Режимы</span>
-                <strong>Игра, анализ, обучение</strong>
-            </div>
-        </div>
     </section>
 
     <section class="responsive-grid home-features">
         <MudPaper Elevation="0" Class="app-card home-feature">
             <MudIcon Icon="@Icons.Material.Filled.AutoGraph" Color="Color.Success" Size="Size.Large" Class="mb-3" />
-            <MudText Typo="Typo.h6">Анализ партии</MudText>
+            <MudText Typo="Typo.h6">Играй и анализируй партии</MudText>
             <MudText Typo="Typo.body2" Class="home-feature__text">
-                Разбирайте PGN, следите за графиком оценки и находите проблемные решения без лишних шагов.
+                Играйте и разберайте партии с помощью мощного движка Stockfish 18 Lite, который можно настроить под ваш уровень игры.
             </MudText>
         </MudPaper>
 
         <MudPaper Elevation="0" Class="app-card home-feature">
             <MudIcon Icon="@Icons.Material.Filled.Psychology" Color="Color.Info" Size="Size.Large" Class="mb-3" />
-            <MudText Typo="Typo.h6">Игра с ИИ</MudText>
+            <MudText Typo="Typo.h6">20 уровней сложности</MudText>
             <MudText Typo="Typo.body2" Class="home-feature__text">
-                Выбирайте сторону и уровень силы, а доска и панели автоматически перестраиваются под ширину экрана.
+                Гибкая настройка сложности от новичка до эксперта позволяет каждому найти подходящего соперника и улучшать свои навыки.
             </MudText>
         </MudPaper>
 
@@ -85,7 +70,6 @@
     }
 
     .home-hero__title {
-        max-width: 14ch;
         font-weight: 800;
         line-height: 1.02;
     }

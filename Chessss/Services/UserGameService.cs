@@ -301,7 +301,7 @@ namespace Chessss.Services
                 Result = result,
                 MoveCount = moveCount,
                 DurationMinutes = 0,
-                Source = "Manual PGN",
+                Source = "Ручной импорт PGN",
                 ExternalId = BuildImportFingerprint(whitePlayer, blackPlayer, result, tags["Date"], body),
                 IsAnalyzed = false,
                 WhiteAccuracy = null,
