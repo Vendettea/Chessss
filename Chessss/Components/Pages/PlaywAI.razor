@@ -25,14 +25,30 @@
         <div class="play-ai-layout chess-layout">
             <section class="play-ai-board-area" aria-label="Шахматная доска">
                 <div class="play-ai-board-column">
-                    <div class="play-ai-player-strip play-ai-player-strip-top">
-                        <MudAvatar Color="Color.Default" Variant="Variant.Outlined" Size="Size.Medium" Class="play-ai-avatar">
-                            <MudIcon Icon="@Icons.Material.Filled.SmartToy" Size="Size.Medium" />
-                        </MudAvatar>
+                    <div class="play-ai-players-bar">
+                        <div class="play-ai-player-block play-ai-player-block-start">
+                            <MudAvatar Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small" Class="play-ai-avatar">
+                                <MudIcon Icon="@Icons.Material.Filled.SmartToy" Size="Size.Small" />
+                            </MudAvatar>
+                            <div class="play-ai-player-copy">
+                                <div class="play-ai-player-name">Бот</div>
+                                <div class="play-ai-player-subtitle">Уровень @GetDisplayedDifficulty()</div>
+                            </div>
+                        </div>
 
-                        <div class="play-ai-player-copy">
-                            <div class="play-ai-player-name">Бот</div>
-                            <div class="play-ai-player-subtitle">Уровень @GetDisplayedDifficulty()</div>
+                        <div class="play-ai-timer" aria-live="polite">
+                            <span class="play-ai-timer-value">@_elapsedTimeText</span>
+                        </div>
+
+                        <div class="play-ai-player-block play-ai-player-block-end">
+                            <div class="play-ai-player-copy play-ai-player-copy-end">
+                                <div class="play-ai-player-name">@_currentUserDisplayName</div>
+                                <div class="play-ai-player-subtitle">Игрок</div>
+                            </div>
+                            <UserAvatar AvatarUrl="@_currentUserAvatarUrl"
+                                        DisplayName="@_currentUserDisplayName"
+                                        AvatarSize="Size.Small"
+                                        Class="play-ai-avatar" />
                         </div>
                     </div>
 
@@ -63,25 +79,6 @@
                             </div>
                         }
                     </div>
-
-                    <div class="play-ai-board-footer">
-                        <div class="play-ai-player-strip play-ai-player-strip-bottom">
-                            <UserAvatar AvatarUrl="@_currentUserAvatarUrl"
-                                        DisplayName="@_currentUserDisplayName"
-                                        AvatarSize="Size.Medium"
-                                        Class="play-ai-avatar" />
-
-                            <div class="play-ai-player-copy">
-                                <div class="play-ai-player-name">@_currentUserDisplayName</div>
-                                <div class="play-ai-player-subtitle">Игрок</div>
-                            </div>
-                        </div>
-
-                        <div class="play-ai-timer" aria-live="polite">
-                            <span class="play-ai-timer-label">Время</span>
-                            <span class="play-ai-timer-value">@_elapsedTimeText</span>
-                        </div>
-                    </div>
                 </div>
             </section>
 
@@ -90,28 +87,27 @@
                 {
                     <div class="play-ai-panel-content play-ai-start-panel">
                         <div class="play-ai-panel-head">
-                            <MudText Typo="Typo.h5">Новая партия</MudText>
-                            <MudText Typo="Typo.body2" Class="play-ai-muted">
-                                Выберите уровень ИИ и сторону, затем начните игру.
-                            </MudText>
+                            <MudText Typo="Typo.h5">ИИ</MudText>
                         </div>
 
-                        <MudSelect T="int"
-                                   Label="Сложность"
-                                   Variant="Variant.Outlined"
-                                   Dense="true"
-                                   @bind-Value="_selectedDifficulty">
+                        <div class="play-ai-difficulty-list" role="listbox" aria-label="Выбор сложности">
                             @foreach (var option in DifficultyOptions)
                             {
-                                <MudSelectItem T="int" Value="@option.Level">
-                                    Уровень @option.Level - @option.Name
-                                </MudSelectItem>
-                            }
-                        </MudSelect>
+                                <div class="@GetDifficultyRowClass(option.Level)"
+                                     role="option"
+                                     aria-selected="@(_selectedDifficulty == option.Level)"
+                                     @onclick="@(() => SelectDifficulty(option.Level))">
+                                    <div class="play-ai-difficulty-row-head">
+                                        <span class="play-ai-difficulty-row-title">Уровень @option.Level - @option.Name</span>
+                                        <span class="play-ai-difficulty-row-elo">@option.EloMin–@option.EloMax Elo</span>
+                                    </div>
 
-                        <div class="play-ai-difficulty-card">
-                            <MudText Typo="Typo.subtitle2">@GetDifficultyLabel(_selectedDifficulty)</MudText>
-                            <MudText Typo="Typo.body2">@GetDifficultyDescription(_selectedDifficulty)</MudText>
+                                    @if (_selectedDifficulty == option.Level)
+                                    {
+                                        <div class="play-ai-difficulty-row-description">@GetDifficultyDescription(option.Level)</div>
+                                    }
+                                </div>
+                            }
                         </div>
 
                         <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-3">
@@ -119,8 +115,6 @@
                         </MudAlert>
 
                         <div class="play-ai-control-group">
-                            <MudText Typo="Typo.subtitle2">Сторона</MudText>
-
                             <div class="play-ai-segmented" role="radiogroup" aria-label="Выбор стороны">
                                 <button type="button"
                                         class="@GetSideButtonClass(SideChoice.White)"
@@ -308,7 +302,7 @@
         --play-ai-muted-color: var(--app-muted);
         --play-ai-selected-square: rgba(244, 211, 94, 0.38);
         --play-ai-move-dot: color-mix(in srgb, var(--app-accent-2) 62%, white);
-        --play-ai-panel-height: clamp(520px, calc(100dvh - 126px), 760px);
+        --play-ai-panel-height: calc(100dvh - 126px);
         padding: 0.5rem 0 1.25rem;
     }
 
@@ -322,7 +316,7 @@
         grid-template-columns: minmax(0, 1fr) clamp(300px, 28vw, 344px);
         justify-content: center;
         gap: clamp(0.85rem, 1.5vw, 1.15rem);
-        align-items: start;
+        align-items: stretch;
         min-width: 0;
     }
 
@@ -335,9 +329,7 @@
         margin: 0 auto;
     }
 
-    .play-ai-player-strip,
     .play-ai-board-shell,
-    .play-ai-board-footer,
     .play-ai-side-panel {
         background:
             linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)),
@@ -346,16 +338,31 @@
         box-shadow: 0 18px 36px rgba(0, 0, 0, 0.22);
     }
 
-    .play-ai-player-strip {
+    .play-ai-players-bar {
         display: flex;
         align-items: center;
-        gap: 0.85rem;
-        padding: 0.85rem 1rem;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.65rem 0.85rem;
         border-radius: 18px;
+        margin-bottom: 0.85rem;
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)),
+            color-mix(in srgb, var(--mud-palette-surface) 88%, black);
+        border: 1px solid var(--play-ai-border);
+        box-shadow: 0 18px 36px rgba(0, 0, 0, 0.22);
     }
 
-    .play-ai-player-strip-top {
-        margin-bottom: 0.85rem;
+    .play-ai-player-block {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        min-width: 0;
+        flex: 1 1 0;
+    }
+
+    .play-ai-player-block-end {
+        justify-content: flex-end;
     }
 
     .play-ai-avatar {
@@ -367,15 +374,22 @@
         min-width: 0;
     }
 
+    .play-ai-player-copy-end {
+        text-align: right;
+    }
+
     .play-ai-player-name {
-        font-size: 1rem;
+        font-size: 0.95rem;
         font-weight: 700;
         line-height: 1.2;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .play-ai-player-subtitle {
         margin-top: 0.15rem;
-        font-size: 0.88rem;
+        font-size: 0.82rem;
         color: var(--play-ai-muted-color);
     }
 
@@ -428,45 +442,19 @@
         border: 5px solid var(--play-ai-move-dot);
     }
 
-    .play-ai-board-footer {
-        margin-top: 0.85rem;
-        padding: 0.85rem 1rem;
-        border-radius: 18px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-    }
-
-    .play-ai-player-strip-bottom {
-        margin: 0;
-        padding: 0;
-        border: 0;
-        background: transparent;
-        box-shadow: none;
-        min-width: 0;
-    }
-
     .play-ai-timer {
         display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 0.15rem;
-        min-width: 84px;
-        padding: 0.55rem 0.75rem;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        min-width: 72px;
+        padding: 0.4rem 0.75rem;
         border-radius: 14px;
         background: var(--play-ai-soft);
     }
 
-    .play-ai-timer-label {
-        font-size: 0.72rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--play-ai-muted-color);
-    }
-
     .play-ai-timer-value {
-        font-size: 1.12rem;
+        font-size: 1.05rem;
         font-weight: 700;
         font-variant-numeric: tabular-nums;
     }
@@ -503,25 +491,70 @@
     }
 
     .play-ai-start-panel {
-        justify-content: center;
-        overflow-y: auto;
+        overflow: hidden;
+        min-height: 0;
     }
 
     .play-ai-muted {
         color: var(--play-ai-muted-color);
     }
 
-    .play-ai-difficulty-card {
-        padding: 0.9rem 1rem;
+    .play-ai-difficulty-list {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        padding-right: 0.2rem;
+    }
+
+    .play-ai-difficulty-row {
+        padding: 0.65rem 0.8rem;
         border: 1px solid var(--play-ai-border);
-        border-radius: 16px;
+        border-radius: 14px;
         background: var(--play-ai-soft);
+        cursor: pointer;
+        transition: background 0.18s ease, border-color 0.18s ease;
+    }
+
+    .play-ai-difficulty-row:hover {
+        background: var(--play-ai-soft-strong);
+    }
+
+    .play-ai-difficulty-row.is-selected {
+        border-color: color-mix(in srgb, var(--mud-palette-success) 55%, transparent);
+        background: color-mix(in srgb, var(--mud-palette-success) 14%, var(--play-ai-soft));
+    }
+
+    .play-ai-difficulty-row-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.6rem;
+        font-weight: 700;
+        font-size: 0.92rem;
+    }
+
+    .play-ai-difficulty-row-elo {
+        flex-shrink: 0;
+        font-weight: 500;
+        font-size: 0.78rem;
+        color: var(--play-ai-muted-color);
+    }
+
+    .play-ai-difficulty-row-description {
+        margin-top: 0.4rem;
+        font-size: 0.85rem;
+        color: var(--play-ai-muted-color);
+        line-height: 1.4;
     }
 
     .play-ai-control-group {
         display: flex;
         flex-direction: column;
         gap: 0.55rem;
+        flex-shrink: 0;
     }
 
     .play-ai-segmented {
@@ -702,7 +735,7 @@
 
     @@media (max-width: 1360px) {
         .play-ai-page {
-            --play-ai-panel-height: clamp(520px, calc(100dvh - 120px), 720px);
+            --play-ai-panel-height: calc(100dvh - 120px);
         }
 
         .play-ai-stage {
@@ -748,13 +781,8 @@
             border-radius: 20px;
         }
 
-        .play-ai-board-footer {
-            flex-direction: column;
-            align-items: stretch;
-        }
-
-        .play-ai-timer {
-            align-items: flex-start;
+        .play-ai-players-bar {
+            flex-wrap: wrap;
         }
 
         .play-ai-panel-content {
@@ -1316,6 +1344,18 @@
         return _selectedSide == side
             ? "play-ai-side-option is-selected"
             : "play-ai-side-option";
+    }
+
+    private string GetDifficultyRowClass(int level)
+    {
+        return _selectedDifficulty == level
+            ? "play-ai-difficulty-row is-selected"
+            : "play-ai-difficulty-row";
+    }
+
+    private void SelectDifficulty(int level)
+    {
+        _selectedDifficulty = NormalizeDifficulty(level);
     }
 
 

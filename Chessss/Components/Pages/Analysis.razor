@@ -8,6 +8,7 @@
 @inject IJSRuntime JS
 @inject UserManager<ApplicationUser> UserManager
 @inject UserGameService UserGameService
+@inject ISnackbar Snackbar
 @using System.Text.Json
 @implements IAsyncDisposable
 
@@ -18,7 +19,7 @@
 
         @* ═══ BOARD COLUMN ═══ *@
         <section class="analysis-board-column">
-            <MudPaper Elevation="0" Class="analysis-board-panel chess-board-panel">
+            <div class="analysis-board-area">
 
                 @* Top player bar (Black) *@
                 <div class="player-bar player-bar--top">
@@ -40,41 +41,29 @@
                     </div>
                 </div>
 
-                <MudText Typo="Typo.h5" Class="mt-4 text-center eval-text">Оценка: @CurrentEvaluation</MudText>
-            </MudPaper>
+                @* PGN input + combined load-and-analyze action *@
+                <div class="pgn-input-row">
+                    <MudTextField @bind-Value="PgnInput"
+                                  Label="Вставьте PGN партии"
+                                  Lines="3"
+                                  Variant="Variant.Outlined"
+                                  Class="pgn-input-field" />
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               OnClick="LoadPgnAndAnalyze"
+                               Disabled="@(IsAnalyzing || !_boardReady)"
+                               Class="pgn-analyze-button">
+                        @AnalyzeButtonText
+                    </MudButton>
+                </div>
+            </div>
         </section>
 
         @* ═══ SIDE COLUMN ═══ *@
         <section class="analysis-side-column">
 
-            @* Engine + PGN controls *@
-            <MudPaper Class="pa-4 mb-3 chess-side-panel" Elevation="0">
-
-                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-3">
-                    @_engineStatusText
-                </MudAlert>
-
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           OnClick="StartAnalysis"
-                           FullWidth="true"
-                           Disabled="@(IsAnalyzing || !_boardReady)">
-                    @AnalyzeButtonText
-                </MudButton>
-            </MudPaper>
-
-            <MudPaper Class="pa-4 mb-3 chess-side-panel" Elevation="0">
-                <MudTextField @bind-Value="PgnInput"
-                              Label="Вставьте PGN партии"
-                              Lines="4"
-                              Variant="Variant.Outlined" />
-                <MudStack Row="true" Class="mt-3" Spacing="2" Justify="Justify.FlexStart">
-                    <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="LoadPgn">Загрузить PGN</MudButton>
-                </MudStack>
-            </MudPaper>
-
             @* Tabs: Отчёт / Анализ *@
-            <MudPaper Class="chess-side-panel" Elevation="0">
+            <MudPaper Class="chess-side-panel analysis-side-paper" Elevation="0">
                 <MudTabs Elevation="0"
                          Rounded="false"
                          ApplyEffectsToContainer="true"
@@ -275,16 +264,29 @@
 <div @onkeydown="HandleKeyDown" tabindex="0" id="analysis-keyboard-trap" style="outline:none;position:fixed;opacity:0;pointer-events:none;"></div>
 
 <style>
+    html {
+        overflow: hidden;
+    }
+
     /* ── Layout ── */
     .analysis-layout {
+        --analysis-viewport-height: calc(100dvh - 110px);
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(22rem, 26rem);
         gap: 1rem;
-        align-items: start;
+        align-items: stretch;
+        height: var(--analysis-viewport-height);
+        max-height: var(--analysis-viewport-height);
     }
 
-    .analysis-board-panel {
-        padding: clamp(0.85rem, 1.5vw, 1.25rem);
+    .analysis-board-column {
+        min-height: 0;
+        max-height: 100%;
+        overflow-y: auto;
+    }
+
+    .analysis-board-area {
+        padding: clamp(0.85rem, 1.5vw, 1.25rem) 0;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -295,8 +297,24 @@
         margin: 0 auto;
     }
 
-    .eval-text {
-        width: 100%;
+    /* ── PGN input row (below board) ── */
+    .pgn-input-row {
+        width: min(100%, 700px);
+        display: flex;
+        align-items: flex-start;
+        gap: 0.6rem;
+        margin-top: 0.75rem;
+    }
+
+    .pgn-input-field {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .pgn-analyze-button {
+        flex-shrink: 0;
+        align-self: stretch;
+        min-height: 56px;
     }
 
     /* ── Player bars ── */
@@ -339,10 +357,37 @@
         color: var(--app-muted);
     }
 
+    /* ── Side column / panel height ── */
+    .analysis-side-column {
+        min-height: 0;
+        max-height: 100%;
+    }
+
+    .analysis-side-paper {
+        height: 100%;
+        max-height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
     /* ── Tabs ── */
     .analysis-tabs .mud-tab {
         font-weight: 600;
         font-size: 0.9rem;
+    }
+
+    .analysis-tabs {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .analysis-tabs .mud-tabs-panels {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
     }
 
     /* ── Report: player header ── */
@@ -589,13 +634,42 @@
     .mt-4 { margin-top: 1rem !important; }
 
     @@media (max-width: 1100px) {
+        html {
+            overflow: auto;
+        }
+
         .analysis-layout {
             grid-template-columns: 1fr;
+            height: auto;
+            max-height: none;
+        }
+
+        .analysis-board-column,
+        .analysis-side-column {
+            max-height: none;
+            overflow: visible;
+        }
+
+        .analysis-side-paper {
+            height: auto;
+            max-height: none;
+        }
+
+        .analysis-tabs .mud-tabs-panels {
+            overflow-y: visible;
         }
     }
 
     @@media (max-width: 520px) {
         .mq-two-col { grid-template-columns: 1fr; }
+
+        .pgn-input-row {
+            flex-direction: column;
+        }
+
+        .pgn-analyze-button {
+            width: 100%;
+        }
     }
 </style>
 
@@ -710,6 +784,7 @@
             if (!_boardReady)
             {
                 _engineStatusText = "Не удалось подготовить доску анализа.";
+                Snackbar.Add(_engineStatusText, Severity.Error);
                 StateHasChanged();
                 return;
             }
@@ -732,6 +807,7 @@
         if (string.IsNullOrWhiteSpace(_userId))
         {
             _engineStatusText = "Войдите в аккаунт, чтобы открыть сохранённую партию.";
+            Snackbar.Add(_engineStatusText, Severity.Warning);
             return;
         }
 
@@ -739,6 +815,7 @@
         if (game is null || string.IsNullOrWhiteSpace(game.PgnContent))
         {
             _engineStatusText = "Партия не найдена.";
+            Snackbar.Add(_engineStatusText, Severity.Warning);
             return;
         }
 
@@ -755,14 +832,30 @@
         CurrentEvaluation = "0.0";
 
         var loaded = await JS.InvokeAsync<bool>("analysisBridge.loadPgn", PgnInput);
+        if (loaded)
+        {
+            var moves = await JS.InvokeAsync<string[]>("analysisExtra.getMoveList");
+            _moveList = moves?.Select(m => new MoveEntry(m, "Best")).ToList() ?? new();
+            _totalMoves = _moveList.Count;
+        }
+        else
+        {
+            Snackbar.Add("Не удалось разобрать PGN этой партии.", Severity.Error);
+        }
         _engineStatusText = loaded
             ? $"Партия {game.WhitePlayer} — {game.BlackPlayer} загружена. Нажмите «Начать анализ»."
             : "Не удалось разобрать PGN этой партии.";
     }
 
-    private async Task LoadPgn()
+    private async Task LoadPgnAndAnalyze()
     {
-        if (string.IsNullOrWhiteSpace(PgnInput)) return;
+        if (string.IsNullOrWhiteSpace(PgnInput))
+        {
+            Snackbar.Add("Вставьте PGN партии перед запуском анализа.", Severity.Warning);
+            return;
+        }
+
+        if (!_boardReady) return;
 
         ResetQualities();
         ChartData.Clear();
@@ -778,14 +871,20 @@
         ParsePgnHeaders(PgnInput);
 
         var loaded = await JS.InvokeAsync<bool>("analysisBridge.loadPgn", PgnInput);
-        if (loaded)
+        if (!loaded)
         {
-            // Ask JS for the move list
-            var moves = await JS.InvokeAsync<string[]>("analysisExtra.getMoveList");
-            _moveList = moves?.Select(m => new MoveEntry(m, "Best")).ToList() ?? new();
-            _totalMoves = _moveList.Count;
+            Snackbar.Add("Не удалось разобрать PGN. Проверьте формат партии.", Severity.Error);
+            StateHasChanged();
+            return;
         }
+
+        // Ask JS for the move list
+        var moves = await JS.InvokeAsync<string[]>("analysisExtra.getMoveList");
+        _moveList = moves?.Select(m => new MoveEntry(m, "Best")).ToList() ?? new();
+        _totalMoves = _moveList.Count;
         StateHasChanged();
+
+        await StartAnalysis();
     }
 
     private void ParsePgnHeaders(string pgn)
@@ -867,6 +966,7 @@
         {
             IsAnalyzing = false;
             _engineStatusText = "Stockfish 18 Lite не загрузился. Проверьте файлы движка и консоль браузера.";
+            Snackbar.Add(_engineStatusText, Severity.Error);
         }
     }
 
