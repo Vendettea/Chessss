@@ -1,10 +1,12 @@
 ﻿@page "/admin/training"
 @rendermode InteractiveServer
+@attribute [Authorize(Roles = UltraChessRoles.Admin)]
 @using MudBlazor
 @using Chessss.Models
 @using Chessss.Data
 @using Microsoft.EntityFrameworkCore
 @using MudBlazor.Charts
+@using Microsoft.AspNetCore.Authorization
 @inject ApplicationDbContext Db
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
@@ -13,7 +15,7 @@
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-12">
     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-6">
-        <MudText Typo="Typo.h4">Админка</MudText>
+        <MudText Typo="Typo.h4">Администрование материалов</MudText>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => OpenDialog(null))">
             ДОБАВИТЬ МАТЕРИАЛ
         </MudButton>

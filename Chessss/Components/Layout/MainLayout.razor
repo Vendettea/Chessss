@@ -47,7 +47,11 @@
                 <MudNavLink Href="/training" Icon="@Icons.Material.Filled.School">Обучение</MudNavLink>
                 <MudNavLink Href="/leaderboard" Icon="@Icons.Material.Filled.Leaderboard">Таблица лидеров</MudNavLink>
                 <MudNavLink Href="/my-games" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Мои партии</MudNavLink>
-                <MudNavLink Href="/admin/training" Icon="@Icons.Material.Filled.AdminPanelSettings">Админка</MudNavLink>
+
+                @if (_isAdmin)
+                {
+                    <MudNavLink Href="/admin/training" Icon="@Icons.Material.Filled.AdminPanelSettings">Админка</MudNavLink>
+                }
             </MudNavMenu>
         </nav>
 
@@ -120,6 +124,7 @@
     private bool _isMini;
     private bool _isDarkMode = true;
     private bool _isAuthenticated;
+    private bool _isAdmin;
     private ApplicationUser? _currentUser;
     private string _accountDisplayName = "Войти";
     private string? _currentAvatarUrl;
@@ -208,6 +213,7 @@
         }
 
         _isAuthenticated = true;
+        _isAdmin = await UserManager.IsInRoleAsync(_currentUser, UltraChessRoles.Admin);
         _accountDisplayName = GetDisplayName(_currentUser.Nickname, _currentUser.Email ?? principal.Identity?.Name);
         _currentAvatarUrl = _currentUser.AvatarUrl;
     }
@@ -219,6 +225,7 @@
     private void SetAnonymousAccountState()
     {
         _isAuthenticated = false;
+        _isAdmin = false;
         _currentUser = null;
         _currentAvatarUrl = null;
         _accountDisplayName = "Войти";

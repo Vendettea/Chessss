@@ -24,6 +24,39 @@
         </div>
     </section>
 
+    <section class="home-steps app-card">
+        <div class="home-step">
+            <span class="home-step__num">1</span>
+            <MudIcon Icon="@Icons.Material.Filled.Tune" Color="Color.Success" />
+            <div class="home-step__copy">
+                <MudText Typo="Typo.subtitle2" Class="home-step__title">Настройте уровень</MudText>
+                <MudText Typo="Typo.caption" Class="home-step__text">20 уровней - от новичка до эксперта</MudText>
+            </div>
+        </div>
+
+        <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Class="home-step__arrow" />
+
+        <div class="home-step">
+            <span class="home-step__num">2</span>
+            <MudIcon Icon="@Icons.Material.Filled.VideogameAsset" Color="Color.Info" />
+            <div class="home-step__copy">
+                <MudText Typo="Typo.subtitle2" Class="home-step__title">Сыграйте партию</MudText>
+                <MudText Typo="Typo.caption" Class="home-step__text">Прямо в браузере, без установки</MudText>
+            </div>
+        </div>
+
+        <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Class="home-step__arrow" />
+
+        <div class="home-step">
+            <span class="home-step__num">3</span>
+            <MudIcon Icon="@Icons.Material.Filled.QueryStats" Color="Color.Warning" />
+            <div class="home-step__copy">
+                <MudText Typo="Typo.subtitle2" Class="home-step__title">Получите анализ</MudText>
+                <MudText Typo="Typo.caption" Class="home-step__text">ИИ разберёт каждый ваш ход</MudText>
+            </div>
+        </div>
+    </section>
+
     <section class="responsive-grid home-features">
         <MudPaper Elevation="0" Class="app-card home-feature">
             <MudIcon Icon="@Icons.Material.Filled.AutoGraph" Color="Color.Success" Size="Size.Large" Class="mb-2" />
@@ -46,6 +79,14 @@
             <MudText Typo="Typo.h6">Личный профиль</MudText>
             <MudText Typo="Typo.body2" Class="home-feature__text">
                 Храните статистику, рейтинг, аватар и историю партий в одном месте без хаотичных экранов.
+            </MudText>
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="app-card home-feature">
+            <MudIcon Icon="@Icons.Material.Filled.Public" Color="Color.Primary" Size="Size.Large" Class="mb-2" />
+            <MudText Typo="Typo.h6">Без установки</MudText>
+            <MudText Typo="Typo.body2" Class="home-feature__text">
+                Играйте и анализируйте партии прямо в браузере — на компьютере или телефоне, без скачивания приложений.
             </MudText>
         </MudPaper>
     </section>
@@ -113,7 +154,59 @@
         margin-top: 1.25rem;
     }
 
+    .home-steps {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.85rem 1.5rem;
+    }
+
+    .home-step {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        min-width: 0;
+        flex: 1;
+    }
+
+    .home-step__num {
+        flex-shrink: 0;
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--app-accent);
+        background: color-mix(in srgb, var(--app-accent) 16%, transparent);
+    }
+
+    .home-step__copy {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        min-width: 0;
+    }
+
+    .home-step__title {
+        font-weight: 700;
+    }
+
+    .home-step__text {
+        color: var(--app-muted);
+        white-space: nowrap;
+    }
+
+    .home-step__arrow {
+        flex-shrink: 0;
+        color: var(--app-border);
+    }
+
     .home-features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 1rem;
     }
 
@@ -141,6 +234,21 @@
 
         .home-hero__copy {
             max-width: none;
+        }
+    }
+
+    @@media (max-width: 760px) {
+        .home-steps {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .home-step__arrow {
+            display: none;
+        }
+
+        .home-step__text {
+            white-space: normal;
         }
     }
 

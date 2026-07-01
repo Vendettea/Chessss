@@ -261,7 +261,8 @@
 
 .sidebar-collapsed .sidebar-nav ::deep .mud-nav-link-icon,
 .sidebar-collapsed .sidebar-feedback ::deep .mud-nav-link-icon,
-.sidebar-collapsed .mud-icon-root {
+.sidebar-collapsed .sidebar-nav ::deep .mud-icon-root,
+.sidebar-collapsed .sidebar-feedback ::deep .mud-icon-root {
     width: 24px;
     min-width: 24px;
     height: 24px;

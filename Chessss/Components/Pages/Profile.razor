@@ -51,9 +51,9 @@
         <MudText Typo="Typo.body2" Class="profile-muted">@_profile.Email</MudText>
     </div>
 
-    <form action="Account/Logout"
-          method="post"
-          class="profile-logout-form">
+    <form action="/logout"
+      method="post"
+      class="profile-logout-form">
 
         <AntiforgeryToken />
         <input type="hidden" name="ReturnUrl" value="/" />
